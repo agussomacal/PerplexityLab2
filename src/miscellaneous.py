@@ -73,6 +73,8 @@ def make_hash(o):
 
     if isinstance(o, (set, tuple, list)):
         return hash(tuple([make_hash(e) for e in o]))
+    elif isinstance(o, dict):
+        return hash(tuple([(make_hash(k), make_hash(o[k])) for k in sorted(o)]))
     # elif isinstance(o, pd.DataFrame):
     #     return make_hash((o.values, o.columns.tolist(), o.index.tolist()))
     elif isinstance(o, np.ndarray):
