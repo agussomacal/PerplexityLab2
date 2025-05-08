@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from functools import partial, partialmethod
 from pathlib import Path
 from typing import Callable, Dict
+import hashlib
 
 import joblib
 import numpy as np
@@ -64,34 +65,36 @@ def make_hash(o):
       make_hash([fn.__dict__, fn.__code__])
     """
 
-    if type(o) == DictProxyType:
-        o2 = {}
-        for k, v in o.items():
-            if not k.startswith("__"):
-                o2[k] = v
-        o = o2
+    # if type(o) == DictProxyType:
+    #     o2 = {}
+    #     for k, v in o.items():
+    #         if not k.startswith("__"):
+    #             o2[k] = v
+    #     o = o2
 
-    if isinstance(o, (set, tuple, list)):
-        return hash(tuple([make_hash(e) for e in o]))
+    if isinstance(o, str):
+        return hashlib.sha256(o.encode('utf-8')).hexdigest()
+    elif isinstance(o, (set, tuple, list)):
+        return make_hash(str([make_hash(e) for e in o]))
+    elif isinstance(o, set):
+        return make_hash(sorted(list(o)))
     elif isinstance(o, dict):
-        return hash(tuple([(make_hash(k), make_hash(o[k])) for k in sorted(o)]))
-    # elif isinstance(o, pd.DataFrame):
-    #     return make_hash((o.values, o.columns.tolist(), o.index.tolist()))
+        return make_hash(tuple([(make_hash(k), make_hash(o[k])) for k in sorted(o)]))
     elif isinstance(o, np.ndarray):
-        return make_hash(o.tolist())
-    # elif isinstance(o, (
-    #         csr_array, bsr_array, coo_array, csc_array, dia_array, dok_array, lil_array, bsr_matrix, coo_matrix,
-    #         csc_matrix,
-    #         csr_matrix, dia_matrix, dok_matrix, lil_matrix)):
-    #     return make_hash((o.nonzero(), o.data))
-    elif not isinstance(o, dict):
-        return hash(o)
-
-    new_o = copy.deepcopy(o)
-    for k, v in new_o.items():
-        new_o[k] = make_hash(v)
-
-    return hash(tuple(frozenset(sorted(new_o.items()))))
+        return make_hash(o.ravel().tolist())
+    elif isinstance(o, Callable):
+        return make_hash([o.__dict__, o.__code__])
+    elif inspect.isclass(o):
+        return make_hash([o.__dict__, o.__name__])
+    elif isinstance(o, (int, float)):
+        return make_hash(str(o))
+    else:
+        return make_hash(str(o))
+    # new_o = copy.deepcopy(o)
+    # for k, v in new_o.items():
+    #     new_o[k] = make_hash(v)
+    #
+    # return hash(tuple(frozenset(sorted(new_o.items()))))
 
 
 def ifex_saver(data, filepath, saver, file_format):
@@ -162,7 +165,7 @@ def if_exist_load_else_do(file_format="joblib", loader=None, saver=None, descrip
                 hash_of_input_old = None
                 if os.path.exists(filepath_hash):
                     with open(filepath_hash, "r") as f:
-                        hash_of_input_old = int(f.readline())
+                        hash_of_input_old = f.readline()
                 hash_of_input = make_hash((args, kwargs))
                 not_same_hash = (hash_of_input != hash_of_input_old)
             else:

@@ -1,11 +1,10 @@
 import os.path
-import pickle
 import unittest
 from pathlib import Path
 
 import numpy as np
 
-from src.miscellaneous import if_exist_load_else_do, make_hash
+from src.perplexitylab.miscellaneous import if_exist_load_else_do, make_hash
 
 
 class Foo1:
