@@ -1,4 +1,5 @@
 import os.path
+import shutil
 import unittest
 from pathlib import Path
 
@@ -7,20 +8,9 @@ import numpy as np
 from src.perplexitylab.miscellaneous import if_exist_load_else_do, make_hash
 
 
-class Foo1:
-    def __init__(self, a):
-        self.a = a
-
-
-class Foo2(Foo1):
-    def __init__(self, a, b):
-        super().__init__(a=a)
-        self.b = b
-
-
 class TestVizUtils(unittest.TestCase):
     def setUp(self) -> None:
-        self.path = Path(__file__).parent.joinpath("TestMicellaneous")
+        self.path = Path(__file__).parent.joinpath(".TestMicellaneous")
 
     def test_hash(self):
         assert make_hash(1) == make_hash(2 - 1)
@@ -81,6 +71,9 @@ class TestVizUtils(unittest.TestCase):
         # change input but check_hash = False
         res = do_something(path=self.path, filename=None, recalculate=False, a=1, b=5)
         assert res == 6
+
+    def tearDown(self):
+        shutil.rmtree(self.path)
 
     if __name__ == '__main__':
         unittest.main()
