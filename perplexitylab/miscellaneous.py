@@ -82,10 +82,10 @@ def make_hash(o):
         return make_hash(tuple([(make_hash(k), make_hash(o[k])) for k in sorted(o)]))
     elif isinstance(o, np.ndarray):
         return make_hash(o.ravel().tolist())
-    elif isinstance(o, Callable):
-        return make_hash([o.__dict__, o.__code__])
     elif inspect.isclass(o):
-        return make_hash([o.__dict__, o.__name__])
+        return make_hash([o.__name__, ])  # TODO: check the right way to hash
+    elif isinstance(o, Callable):
+        return make_hash([o.__name__, o.__dict__, o.__code__.co_filename, ])  # TODO: check the right way to hash
     elif isinstance(o, (int, float)):
         return make_hash(str(o))
     else:

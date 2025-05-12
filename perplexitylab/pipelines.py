@@ -2,6 +2,7 @@ import inspect
 import itertools
 import os.path
 from collections import OrderedDict, defaultdict, namedtuple
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, List, Dict
 
@@ -17,13 +18,21 @@ def filter_dict(keys, dictionary):
 Task = namedtuple("Task", ["name", "task", "required_inputs"])
 
 
+@contextmanager
+def message(msg_before, msg_after):
+    print("\r" + msg_before, end='')
+    yield
+    print("\r" + msg_after)
+
+
 class ExperimentManager:
-    def __init__(self, name, path, save_results=True):
+    def __init__(self, name, path, save_results=True, verbose=True):
         self.name = name
         self.path = path
         self.data_path = Path(path).joinpath(f".data_{name}")
         self.data_path.mkdir(parents=True, exist_ok=True)
         self.save_results = save_results
+        self.verbose = verbose
         self.data_inputs_path = f"{self.data_path}/inputs.joblib"
 
         self.tasks = list()
@@ -41,7 +50,9 @@ class ExperimentManager:
         _, explored_inputs = self.load_explored_inputs()
         result_dict = defaultdict(list)
         inputs = self.constants.copy()
-        for single_experiment_variables in itertools.product(*variables.values()):
+        for i, single_experiment_variables in enumerate(itertools.product(*variables.values())):
+            if self.verbose: print("_____________________")
+            if self.verbose: print("(", i, ") Variables:", *zip(variables, single_experiment_variables))
             inputs.update(dict(zip(variables, single_experiment_variables)))
             for singe_result in self.run_tasks(inputs=inputs):
                 for k, v in singe_result.items():
@@ -82,10 +93,12 @@ class ExperimentManager:
         return f"{self.data_path}/result_{h}.joblib"
 
     def save_single_task_result(self, single_value_variables, multiple_value_variables, stored_result_filepath):
-        joblib.dump((single_value_variables, multiple_value_variables), stored_result_filepath)
+        with message("Experiment finished -> saving...", "Experiment finished -> saved."):
+            joblib.dump((single_value_variables, multiple_value_variables), stored_result_filepath)
 
     def load_single_task_result(self, stored_result_filepath):
-        return joblib.load(stored_result_filepath)
+        with message("Experiment alredy done -> loading...", "Experiment alredy done -> loaded."):
+            return joblib.load(stored_result_filepath)
 
     def save_explored_inputs(self, input_names, explored_inputs):
         return joblib.dump((input_names, explored_inputs), self.data_inputs_path)
