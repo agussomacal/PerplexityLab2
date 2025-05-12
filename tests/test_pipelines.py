@@ -25,6 +25,21 @@ class TestVizUtils(unittest.TestCase):
         assert len(results) == 5
         assert set(map(len, results.values())) == {6}
 
+    def test_pipeline_parallel(self):
+        em = ExperimentManager(name="Experiment", path=self.path, save_results=False, num_cpus=2)
+        em.set_constants(a=2)
+        em.set_pipeline(
+            function1=lambda a, x: ({"out1": a * x}, dict()),
+            function2=lambda x, y: ({"out2": x + y}, dict()),
+        )
+        results = em.run_pipeline(
+            x=[1, 2, 3],
+            y=[10, 20],
+        )
+
+        assert len(results) == 5
+        assert set(map(len, results.values())) == {6}
+
     def test_pipeline_nested_variables(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=False)
         em.set_constants(a=2)

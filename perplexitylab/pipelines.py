@@ -1,23 +1,41 @@
 import inspect
 import itertools
+import multiprocessing
 import os.path
 from collections import OrderedDict, defaultdict, namedtuple
 from contextlib import contextmanager
+from pathos.multiprocessing import Pool
 from pathlib import Path
 from typing import Callable, List, Dict
 
 import joblib
+import numpy as np
 
 from perplexitylab.miscellaneous import make_hash
 
 
+# ---------- Parallel or not parallel ----------
+def get_workers(workers):
+    if workers > 0:
+        return min((multiprocessing.cpu_count() - 1, workers))
+    else:
+        return max((1, multiprocessing.cpu_count() + workers))
+
+
+def get_appropiate_number_of_workers(workers, n):
+    return int(np.max((1, np.min((multiprocessing.cpu_count() - 1, n, workers)))))
+
+
+def get_map_function(workers=1):
+    return map if workers == 1 else Pool(get_workers(workers)).imap_unordered
+
+
+# ---------- Dict tools ----------
 def filter_dict(keys, dictionary):
     return {k: dictionary[k] for k in keys if k in dictionary}
 
 
-Task = namedtuple("Task", ["name", "task", "required_inputs"])
-
-
+# ---------- Verbosity tools ----------
 @contextmanager
 def message(msg_before, msg_after):
     print("\r" + msg_before, end='')
@@ -25,14 +43,21 @@ def message(msg_before, msg_after):
     print("\r" + msg_after)
 
 
+# ================================================ #
+#                ExperimentManager                 #
+# ================================================ #
+Task = namedtuple("Task", ["name", "task", "required_inputs"])
+
+
 class ExperimentManager:
-    def __init__(self, name, path, save_results=True, verbose=True):
+    def __init__(self, name, path, save_results=True, verbose=True, num_cpus=1):
         self.name = name
         self.path = path
         self.data_path = Path(path).joinpath(f".data_{name}")
         self.data_path.mkdir(parents=True, exist_ok=True)
         self.save_results = save_results
         self.verbose = verbose
+        self.num_cpus = num_cpus
         self.data_inputs_path = f"{self.data_path}/inputs.joblib"
 
         self.tasks = list()
@@ -49,16 +74,18 @@ class ExperimentManager:
     def run_pipeline(self, **variables: List):
         _, explored_inputs = self.load_explored_inputs()
         result_dict = defaultdict(list)
-        inputs = self.constants.copy()
-        for i, single_experiment_variables in enumerate(itertools.product(*variables.values())):
-            if self.verbose: print("_____________________")
-            if self.verbose: print("(", i, ") Variables:", *zip(variables, single_experiment_variables))
-            inputs.update(dict(zip(variables, single_experiment_variables)))
-            for singe_result in self.run_tasks(inputs=inputs):
+        # inputs = self.constants.copy()
+        variables.update({k: [v] for k, v in self.constants.items()})
+        pmap = get_map_function(self.num_cpus)
+        for i, results in enumerate(pmap(lambda val: list(self.run_tasks(dict(zip(variables, val)))),
+                                         itertools.product(*variables.values()))):
+            for singe_result in results:
+                new_inputs = [singe_result[k] for k in variables.keys()]
+                if self.verbose: print("_____________________")
+                if self.verbose: print("(", i, ") Variables:", dict(zip(variables, new_inputs)))
                 for k, v in singe_result.items():
                     result_dict[k].append(v)
 
-                new_inputs = [singe_result[k] for k in variables.keys()]
                 for saved_inputs in explored_inputs:
                     if all([v1 == v2 for v1, v2 in zip(new_inputs, saved_inputs)]): break
                 else:
