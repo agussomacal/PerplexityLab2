@@ -7,7 +7,7 @@ from typing import Callable, List, Dict
 
 import joblib
 
-from src.perplexitylab.miscellaneous import make_hash
+from perplexitylab.miscellaneous import make_hash
 
 
 def filter_dict(keys, dictionary):

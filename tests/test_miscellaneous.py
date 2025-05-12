@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.perplexitylab.miscellaneous import if_exist_load_else_do, make_hash
+from perplexitylab.miscellaneous import if_exist_load_else_do, make_hash
 
 
 class TestVizUtils(unittest.TestCase):

@@ -3,7 +3,7 @@ import time
 import unittest
 from pathlib import Path
 
-from src.perplexitylab.pipelines import ExperimentManager
+from perplexitylab.pipelines import ExperimentManager
 
 
 class TestVizUtils(unittest.TestCase):
