@@ -1,11 +1,13 @@
 [project]
 name = "perplexitylab2"
-version = "0.1.4"
+version = "0.1.5"
 description = "PerplexityLab version 2"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "numpy",
+    "matplotlib",
+    "pandas",
     "joblib",
     "pathos"
 ]

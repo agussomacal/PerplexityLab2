@@ -6,10 +6,11 @@ from collections import OrderedDict, defaultdict, namedtuple
 from contextlib import contextmanager
 from pathos.multiprocessing import Pool
 from pathlib import Path
-from typing import Callable, List, Dict
+from typing import Callable, List, Dict, Union, Set
 
 import joblib
 import numpy as np
+import matplotlib.pyplot as plt
 
 from perplexitylab.miscellaneous import make_hash
 
@@ -31,8 +32,10 @@ def get_map_function(workers=1):
 
 
 # ---------- Dict tools ----------
-def filter_dict(keys, dictionary):
-    return {k: dictionary[k] for k in keys if k in dictionary}
+def filter_dict(dictionary: Dict, keys: Union[Set, List] = (), keys_not: Union[Set, List] = ()):
+    assert set(keys).intersection(keys_not) == set(), \
+        f"Keys and Keys_not should be disjoint but found common elements: {set(keys).intersection(keys_not)}"
+    return {k: dictionary[k] for k in keys if k in dictionary.keys() and k not in keys_not}
 
 
 # ---------- Verbosity tools ----------
@@ -50,14 +53,16 @@ Task = namedtuple("Task", ["name", "task", "required_inputs"])
 
 
 class ExperimentManager:
-    def __init__(self, name, path, save_results=True, verbose=True, num_cpus=1):
+    def __init__(self, name, path, save_results=True, verbose=True, num_cpus=1, recalculate=False):
         self.name = name
-        self.path = path
+        self.path = Path(path).joinpath(name)
+        self.path.mkdir(parents=True, exist_ok=True)
         self.data_path = Path(path).joinpath(f".data_{name}")
         self.data_path.mkdir(parents=True, exist_ok=True)
         self.save_results = save_results
         self.verbose = verbose
         self.num_cpus = num_cpus
+        self.recalculate = recalculate
         self.data_inputs_path = f"{self.data_path}/inputs.joblib"
 
         self.tasks = list()
@@ -98,10 +103,10 @@ class ExperimentManager:
             yield inputs
         else:
             task_name, task, required_inputs = self.tasks[order]
-            inputs_for_task = filter_dict(required_inputs, inputs)
+            inputs_for_task = filter_dict(inputs, required_inputs)
             # ----- Load Execute Save ----- #
             stored_result_filepath = self.get_stored_result_filepath(task_name, task, inputs_for_task)
-            if os.path.exists(stored_result_filepath):
+            if os.path.exists(stored_result_filepath) and not self.recalculate:
                 single_value_variables, multiple_value_variables = self.load_single_task_result(stored_result_filepath)
             else:
                 single_value_variables, multiple_value_variables = task(**inputs_for_task)
@@ -143,3 +148,29 @@ class ExperimentManager:
                 for k, v in singe_result.items():
                     result_dict[k].append(v)
         return result_dict
+
+
+# ================================================ #
+#                     Plotting                     #
+# ================================================ #
+@contextmanager
+def savefigure(path2plot, dpi=None):
+    Path(path2plot).parent.mkdir(parents=True, exist_ok=True)
+    yield
+    plt.savefig(path2plot, dpi=dpi)
+    plt.close()
+
+
+def plottify(plot_func):
+    def wrapper(em: ExperimentManager, filename: str, folder="", path=None, *args, **kwargs):
+        variables = set(itertools.chain(*[task.required_inputs for task in em.tasks]))
+        results = em.run_pipeline(**filter_dict(kwargs, variables))
+        results = filter_dict(results, inspect.getfullargspec(plot_func)[0])  # get only variables relevant for plot
+        kwargs = filter_dict(kwargs, inspect.getfullargspec(plot_func)[0])  # get only params relevant for plot
+        kwargs = filter_dict(kwargs, keys_not=list(results.keys()))  # get only params for plot (not already in results)
+        path2figure = f"{path if path is not None else em.path}/{folder}/{filename}"
+        with savefigure(path2figure):
+            plot_func(*args, **kwargs, **results)
+        return path2figure
+
+    return wrapper

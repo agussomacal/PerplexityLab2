@@ -26,3 +26,12 @@ give my code what it needs to have?*
 
 — Dear friend, what you need is __PerplexityLab__!
 Pipelines Experiments Reproducible Parallel Latex Environmentally conscIous jupYter widgets... Or something around that lines. Anyway, it does that and more! Give it a try!
+
+
+# Roadmap
+
+- ISSUE: Multiple nested experiments with nested variables do not work
+- Clean stored results: once experiments converged all results do not opened after a script run should be removed.
+- Memory limiter: check that the stored results do not exceed certain memory limit.
+  - If exceeded then start removing the last accessed results.
+- Add energy consumption
