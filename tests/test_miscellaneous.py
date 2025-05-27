@@ -11,6 +11,7 @@ from perplexitylab.miscellaneous import if_exist_load_else_do, make_hash
 class TestVizUtils(unittest.TestCase):
     def setUp(self) -> None:
         self.path = Path(__file__).parent.joinpath(".TestMicellaneous")
+        self.path.mkdir(parents=True, exist_ok=True)
 
     def test_hash(self):
         assert make_hash(1) == make_hash(2 - 1)

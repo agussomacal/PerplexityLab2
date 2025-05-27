@@ -51,6 +51,7 @@ def message(msg_before, msg_after):
 # ================================================ #
 Task = namedtuple("Task", ["name", "task", "required_inputs"])
 
+PROBLEM_LOADING = (None, None)
 
 class ExperimentManager:
     def __init__(self, name, path, save_results=True, verbose=True, num_cpus=1, recalculate=False):
@@ -105,11 +106,15 @@ class ExperimentManager:
             task_name, task, required_inputs = self.tasks[order]
             inputs_for_task = filter_dict(inputs, required_inputs)
             # ----- Load Execute Save ----- #
+            single_value_variables, multiple_value_variables = PROBLEM_LOADING
             stored_result_filepath = self.get_stored_result_filepath(task_name, task, inputs_for_task)
             if os.path.exists(stored_result_filepath) and not self.recalculate:
                 single_value_variables, multiple_value_variables = self.load_single_task_result(stored_result_filepath)
-            else:
-                single_value_variables, multiple_value_variables = task(**inputs_for_task)
+            # In case there was a problem loading recalculates
+            if (single_value_variables, multiple_value_variables) == PROBLEM_LOADING:
+                result = task(**inputs_for_task)
+                # TODO: this might break if user puts a tuple output
+                single_value_variables, multiple_value_variables = result if isinstance(result, tuple) and len(result) == 2 else (result, dict())
                 if self.save_results:
                     self.save_single_task_result(single_value_variables, multiple_value_variables,
                                                  stored_result_filepath)
@@ -130,7 +135,10 @@ class ExperimentManager:
 
     def load_single_task_result(self, stored_result_filepath):
         with message("Experiment alredy done -> loading...", "Experiment alredy done -> loaded."):
-            return joblib.load(stored_result_filepath)
+            try:
+                return joblib.load(stored_result_filepath)
+            except EOFError:
+                return PROBLEM_LOADING
 
     def save_explored_inputs(self, input_names, explored_inputs):
         return joblib.dump((input_names, explored_inputs), self.data_inputs_path)

@@ -13,6 +13,7 @@ from perplexitylab.pipelines import ExperimentManager, plottify
 class TestPipelines(unittest.TestCase):
     def setUp(self) -> None:
         self.path = Path(__file__).parent.joinpath(".TestExperiments")
+        self.path.mkdir(parents=True, exist_ok=True)
 
     def test_pipeline(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=False)
