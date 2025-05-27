@@ -4,6 +4,8 @@ import multiprocessing
 import os.path
 from collections import OrderedDict, defaultdict, namedtuple
 from contextlib import contextmanager
+from dataclasses import dataclass
+
 from pathos.multiprocessing import Pool
 from pathlib import Path
 from typing import Callable, List, Dict, Union, Set
@@ -32,7 +34,8 @@ def get_map_function(workers=1):
 
 
 # ---------- Dict tools ----------
-def filter_dict(dictionary: Dict, keys: Union[Set, List] = (), keys_not: Union[Set, List] = ()):
+def filter_dict(dictionary: Dict, keys: Union[Set, List] = None, keys_not: Union[Set, List] = ()):
+    keys = dictionary.keys() if keys is None else keys
     assert set(keys).intersection(keys_not) == set(), \
         f"Keys and Keys_not should be disjoint but found common elements: {set(keys).intersection(keys_not)}"
     return {k: dictionary[k] for k in keys if k in dictionary.keys() and k not in keys_not}
@@ -49,9 +52,26 @@ def message(msg_before, msg_after):
 # ================================================ #
 #                ExperimentManager                 #
 # ================================================ #
-Task = namedtuple("Task", ["name", "task", "required_inputs"])
+# Task = namedtuple("Task", ["name", "task", "required_inputs"])
+
+
+@dataclass
+class Task:
+    function: Callable
+    save: bool = True
+    task_name: str = None
+
+    @property
+    def required_inputs(self):
+        return tuple(inspect.getfullargspec(self.function)[0])
+
+    @property
+    def name(self):
+        return self.function.__name__ if self.task_name is None else self.task_name
+
 
 PROBLEM_LOADING = (None, None)
+
 
 class ExperimentManager:
     def __init__(self, name, path, save_results=True, verbose=True, num_cpus=1, recalculate=False):
@@ -70,12 +90,11 @@ class ExperimentManager:
         self.task_required_variables = OrderedDict()
         self.constants = OrderedDict()
 
-    def set_constants(self, **constants):
+    def set_defaults(self, **constants):
         self.constants = constants
 
-    def set_pipeline(self, **kwargs: Callable):
-        for task_name, task in kwargs.items():
-            self.tasks.append(Task(name=task_name, task=task, required_inputs=tuple(inspect.getfullargspec(task)[0])))
+    def set_pipeline(self, *tasks: Task):
+        self.tasks = tasks
 
     def run_pipeline(self, **variables: List):
         _, explored_inputs = self.load_explored_inputs()
@@ -103,19 +122,20 @@ class ExperimentManager:
         if order >= len(self.tasks):
             yield inputs
         else:
-            task_name, task, required_inputs = self.tasks[order]
-            inputs_for_task = filter_dict(inputs, required_inputs)
+            inputs_for_task = filter_dict(inputs, self.tasks[order].required_inputs)
             # ----- Load Execute Save ----- #
             single_value_variables, multiple_value_variables = PROBLEM_LOADING
-            stored_result_filepath = self.get_stored_result_filepath(task_name, task, inputs_for_task)
+            stored_result_filepath = self.get_stored_result_filepath(
+                self.tasks[order].name, self.tasks[order].function, inputs_for_task)
             if os.path.exists(stored_result_filepath) and not self.recalculate:
                 single_value_variables, multiple_value_variables = self.load_single_task_result(stored_result_filepath)
             # In case there was a problem loading recalculates
             if (single_value_variables, multiple_value_variables) == PROBLEM_LOADING:
-                result = task(**inputs_for_task)
+                result = self.tasks[order].function(**inputs_for_task)
                 # TODO: this might break if user puts a tuple output
-                single_value_variables, multiple_value_variables = result if isinstance(result, tuple) and len(result) == 2 else (result, dict())
-                if self.save_results:
+                single_value_variables, multiple_value_variables = result if isinstance(result, tuple) and len(
+                    result) == 2 else (result, dict())
+                if self.save_results and self.tasks[order].save:
                     self.save_single_task_result(single_value_variables, multiple_value_variables,
                                                  stored_result_filepath)
             # ----- Run next nested task ----- #
@@ -170,7 +190,7 @@ def savefigure(path2plot, dpi=None):
 
 
 def plottify(plot_func):
-    def wrapper(em: ExperimentManager, filename: str, folder="", path=None, *args, **kwargs):
+    def wrapper(em: ExperimentManager, filename: str, folder="", path=None, verbose=True, **kwargs):
         variables = set(itertools.chain(*[task.required_inputs for task in em.tasks]))
         results = em.run_pipeline(**filter_dict(kwargs, variables))
         results = filter_dict(results, inspect.getfullargspec(plot_func)[0])  # get only variables relevant for plot
@@ -178,7 +198,8 @@ def plottify(plot_func):
         kwargs = filter_dict(kwargs, keys_not=list(results.keys()))  # get only params for plot (not already in results)
         path2figure = f"{path if path is not None else em.path}/{folder}/{filename}"
         with savefigure(path2figure):
-            plot_func(*args, **kwargs, **results)
+            plot_func(**kwargs, **results)
+        if verbose: print("Figure saved in:", path2figure)
         return path2figure
 
     return wrapper

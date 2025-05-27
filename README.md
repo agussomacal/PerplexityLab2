@@ -30,7 +30,7 @@ Pipelines Experiments Reproducible Parallel Latex Environmentally conscIous jupY
 
 # Roadmap
 
-- ISSUE: Functions can not be saved -> re run part of experiment that loads corresponding information
+- ISSUE: repeated elements might create too much memory (ex a dataset), avoid duplication.
 - ISSUE: plots receive lists of elements instead of individual ones.
 - ISSUE: Multiple nested experiments with nested variables do not work
 - Clean stored results: once experiments converged all results do not opened after a script run should be removed.

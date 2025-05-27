@@ -85,7 +85,7 @@ def make_hash(o):
     elif inspect.isclass(o):
         return make_hash([o.__name__, ])  # TODO: check the right way to hash
     elif isinstance(o, Callable):
-        return make_hash([o.__name__, o.__dict__, o.__code__.co_filename, ])  # TODO: check the right way to hash
+        return make_hash([o.__name__, o.__dict__, ])  # TODO: check the right way to hash/ , o.__code__.co_filename
     elif isinstance(o, (int, float)):
         return make_hash(str(o))
     else:
@@ -180,9 +180,9 @@ def if_exist_load_else_do(file_format="joblib", loader=None, saver=None, descrip
                 # Saving data and hash
                 if save:
                     ifex_saver(data, filepath=filepath, saver=saver, file_format=file_format)
-                    if check_hash:
-                        with open(filepath_hash, "w") as f:
-                            f.writelines(str(hash_of_input))
+                if check_hash:
+                    with open(filepath_hash, "w") as f:
+                        f.writelines(str(hash_of_input))
             else:
                 # loading data
                 try:
