@@ -2,10 +2,12 @@ import inspect
 import itertools
 import multiprocessing
 import os.path
+import warnings
 from collections import OrderedDict, defaultdict, namedtuple
 from contextlib import contextmanager
 from dataclasses import dataclass
 
+import dill
 from pathos.multiprocessing import Pool
 from pathlib import Path
 from typing import Callable, List, Dict, Union, Set
@@ -69,6 +71,7 @@ class Task:
 
 
 PROBLEM_LOADING = (None, None)
+PROBLEM_LOADING_EXPLORED_INPUTS = ([], [])
 
 
 class ExperimentManager:
@@ -83,22 +86,23 @@ class ExperimentManager:
         self.num_cpus = num_cpus
         self.recalculate = recalculate
         self.data_inputs_path = f"{self.data_path}/inputs.joblib"
+        self.data_inputs_path_readable = f"{self.data_path}/inputs.txt"
 
         self.tasks = list()
         self.task_required_variables = OrderedDict()
         self.constants = OrderedDict()
 
     def set_defaults(self, **constants):
-        self.constants = constants
+        self.constants.update(**constants)
 
     def set_pipeline(self, *tasks: Task):
         self.tasks = tasks
 
-    def run_pipeline(self, **variables: List):
+    def run_pipeline(self, **kwargs: List):
         _, explored_inputs = self.load_explored_inputs()
         result_dict = defaultdict(list)
-        # inputs = self.constants.copy()
-        variables.update({k: [v] for k, v in self.constants.items()})
+        variables = {k: [v] for k, v in self.constants.items()}
+        variables.update(**kwargs)
         pmap = get_map_function(self.num_cpus)
         for i, results in enumerate(pmap(lambda val: list(self.run_tasks(dict(zip(variables, val)))),
                                          itertools.product(*variables.values()))):
@@ -156,13 +160,21 @@ class ExperimentManager:
             try:
                 return joblib.load(stored_result_filepath)
             except EOFError:
-                return PROBLEM_LOADING
+                warnings.warn("Warning: some problem with stored RESULTS file, probably not correctly saved.")
+        return PROBLEM_LOADING
 
     def save_explored_inputs(self, input_names, explored_inputs):
-        return joblib.dump((input_names, explored_inputs), self.data_inputs_path)
+        # dill to pickle objects created on the fly
+        dill.dump((input_names, explored_inputs), open(self.data_inputs_path, "wb"))
 
     def load_explored_inputs(self):
-        return joblib.load(self.data_inputs_path) if os.path.exists(self.data_inputs_path) else ([], [])
+        if os.path.exists(self.data_inputs_path):
+            try:
+                # dill to pickle objects created on the fly
+                return dill.load(open(self.data_inputs_path, "rb"))
+            except EOFError:
+                warnings.warn("Warning: some problem with explored INPUTS file, probably not correctly saved.")
+        return PROBLEM_LOADING_EXPLORED_INPUTS
 
     def load_results(self):
         input_names, explored_inputs = self.load_explored_inputs()

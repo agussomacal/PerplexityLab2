@@ -1,11 +1,12 @@
 import os.path
 import shutil
 import unittest
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
-from perplexitylab.miscellaneous import if_exist_load_else_do, make_hash, plx_partial
+from perplexitylab.miscellaneous import if_exist_load_else_do, make_hash, plx_partial, plx_partial_class
 
 
 class TestVizUtils(unittest.TestCase):
@@ -22,6 +23,15 @@ class TestVizUtils(unittest.TestCase):
         assert padd != add
         assert padd.__name__ != add.__name__
         assert add.__name__ in padd.__name__
+
+    def test_plx_partial_class(self):
+        @dataclass
+        class Circle:
+            radius: float = 1.
+
+        Circle2 = plx_partial_class(Circle, radius=2.)
+        assert Circle2().radius == 2.
+        assert Circle2().__class__.__name__ == "plx_" + Circle.__name__
 
     def test_hash(self):
         assert make_hash(1) == make_hash(2 - 1)

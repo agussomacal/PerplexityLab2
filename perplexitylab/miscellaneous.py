@@ -8,7 +8,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from functools import partial, partialmethod
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Callable, Dict, Type
 import hashlib
 
 import joblib
@@ -30,8 +30,13 @@ def timeit(msg, verbose=True):
 def plx_partial(function: Callable, *args, **kwargs) -> Callable:
     partial_function = functools.partial(function, *args, **kwargs)
     partial_function.__name__ = "plx_partial_" + function.__name__
-    partial_function.__module__ = "plx_partial_" + function.__module__
+    # partial_function.__module__ = "plx_partial_" + function.__module__
     return partial_function
+
+
+def plx_partial_class(class_type: Type, *args, **kwargs) -> Type:
+    return type("plx_" + class_type.__name__, (class_type,),
+                {"__init__": lambda self, *arg2, **kwargs2: plx_partial(class_type.__init__, *args, **kwargs)(self=self, *arg2, **kwargs2)})
 
 
 # ---------- File utils ---------- #
