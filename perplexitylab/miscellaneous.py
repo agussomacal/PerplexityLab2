@@ -1,3 +1,4 @@
+import functools
 import inspect
 import os
 import pickle
@@ -23,6 +24,14 @@ def timeit(msg, verbose=True):
     yield
     if verbose:
         print('\r -> duracion {}: {:.2f}s'.format(msg, time.time() - t0))
+
+
+# ----------- func utils -----------
+def plx_partial(function: Callable, *args, **kwargs) -> Callable:
+    partial_function = functools.partial(function, *args, **kwargs)
+    partial_function.__name__ = "plx_partial_" + function.__name__
+    partial_function.__module__ = "plx_partial_" + function.__module__
+    return partial_function
 
 
 # ---------- File utils ---------- #

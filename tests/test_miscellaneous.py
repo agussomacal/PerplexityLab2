@@ -5,13 +5,23 @@ from pathlib import Path
 
 import numpy as np
 
-from perplexitylab.miscellaneous import if_exist_load_else_do, make_hash
+from perplexitylab.miscellaneous import if_exist_load_else_do, make_hash, plx_partial
 
 
 class TestVizUtils(unittest.TestCase):
     def setUp(self) -> None:
         self.path = Path(__file__).parent.joinpath(".TestMicellaneous")
         self.path.mkdir(parents=True, exist_ok=True)
+
+    def test_plx_partial(self):
+        def add(a, b):
+            return a + b
+
+        padd = plx_partial(add, b=2)
+        assert hasattr(padd, '__name__')
+        assert padd != add
+        assert padd.__name__ != add.__name__
+        assert add.__name__ in padd.__name__
 
     def test_hash(self):
         assert make_hash(1) == make_hash(2 - 1)

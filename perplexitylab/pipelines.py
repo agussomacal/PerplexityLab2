@@ -36,8 +36,6 @@ def get_map_function(workers=1):
 # ---------- Dict tools ----------
 def filter_dict(dictionary: Dict, keys: Union[Set, List] = None, keys_not: Union[Set, List] = ()):
     keys = dictionary.keys() if keys is None else keys
-    assert set(keys).intersection(keys_not) == set(), \
-        f"Keys and Keys_not should be disjoint but found common elements: {set(keys).intersection(keys_not)}"
     return {k: dictionary[k] for k in keys if k in dictionary.keys() and k not in keys_not}
 
 
