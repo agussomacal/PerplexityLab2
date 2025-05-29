@@ -104,8 +104,9 @@ class ExperimentManager:
         variables = {k: [v] for k, v in self.constants.items()}
         variables.update(**kwargs)
         pmap = get_map_function(self.num_cpus)
-        for i, results in enumerate(pmap(lambda val: list(self.run_tasks(dict(zip(variables, val)))),
-                                         itertools.product(*variables.values()))):
+        for i, results in enumerate(
+                pmap(lambda val: list(self.run_tasks(dict(zip(variables, val)), input_hash=make_hash(val))),
+                     itertools.product(*variables.values()))):
             for singe_result in results:
                 new_inputs = [singe_result[k] for k in variables.keys()]
                 if self.verbose: print("_____________________")
@@ -120,7 +121,8 @@ class ExperimentManager:
         self.save_explored_inputs(input_names=tuple(list(variables.keys())), explored_inputs=explored_inputs)
         return result_dict
 
-    def run_tasks(self, inputs: Dict, order=0):
+    def run_tasks(self, inputs: Dict, input_hash, order=0):
+        # TODO: h, the input_hash creates an output for al the graph even if some inputs are not used for an intermediate function
         if order >= len(self.tasks):
             yield inputs
         else:
@@ -128,7 +130,7 @@ class ExperimentManager:
             # ----- Load Execute Save ----- #
             single_value_variables, multiple_value_variables = PROBLEM_LOADING
             stored_result_filepath = self.get_stored_result_filepath(
-                self.tasks[order].name, self.tasks[order].function, inputs_for_task)
+                self.tasks[order].name, self.tasks[order].function, inputs_for_task, input_hash)
             if os.path.exists(stored_result_filepath) and not self.recalculate:
                 single_value_variables, multiple_value_variables = self.load_single_task_result(stored_result_filepath)
             # In case there was a problem loading recalculates
@@ -144,11 +146,11 @@ class ExperimentManager:
             inputs.update(single_value_variables)
             for new_variable_values in itertools.product(*multiple_value_variables.values()):
                 inputs.update(dict(zip(multiple_value_variables, new_variable_values)))
-                for single_result in self.run_tasks(inputs, order=order + 1):
+                for single_result in self.run_tasks(inputs, input_hash=input_hash, order=order + 1):
                     yield single_result
 
-    def get_stored_result_filepath(self, task_name, task, inputs_for_task):
-        h = make_hash((task_name, task, inputs_for_task))
+    def get_stored_result_filepath(self, task_name, task, inputs_for_task, h):
+        h = make_hash((task_name, task, inputs_for_task, h))
         return f"{self.data_path}/result_{h}.joblib"
 
     def save_single_task_result(self, single_value_variables, multiple_value_variables, stored_result_filepath):
@@ -182,7 +184,7 @@ class ExperimentManager:
         inputs = self.constants.copy()
         for single_experiment_variables in explored_inputs:
             inputs.update(dict(zip(input_names, single_experiment_variables)))
-            for singe_result in self.run_tasks(inputs=inputs):
+            for singe_result in self.run_tasks(inputs=inputs, input_hash=make_hash(single_experiment_variables)):
                 for k, v in singe_result.items():
                     result_dict[k].append(v)
         return result_dict
@@ -206,7 +208,8 @@ def plottify(variables_assumed_unique=()):
             results = em.run_pipeline(**filter_dict(kwargs, variables))
             results = filter_dict(results, inspect.getfullargspec(plot_func)[0])  # get only variables relevant for plot
             kwargs = filter_dict(kwargs, inspect.getfullargspec(plot_func)[0])  # get only params relevant for plot
-            kwargs = filter_dict(kwargs, keys_not=list(results.keys()))  # get only params for plot (not already in results)
+            kwargs = filter_dict(kwargs,
+                                 keys_not=list(results.keys()))  # get only params for plot (not already in results)
             for k in variables_assumed_unique:
                 results[k] = results[k][0]
             path2figure = f"{path if path is not None else em.path}/{folder}/{filename}"
@@ -214,5 +217,7 @@ def plottify(variables_assumed_unique=()):
                 plot_func(**kwargs, **results)
             if verbose: print("Figure saved in:", path2figure)
             return path2figure
+
         return wrapper
+
     return decorator

@@ -149,7 +149,8 @@ class TestPipelines(unittest.TestCase):
             x=[1, 2, 3],
             y=[10, 20],
         )
-        assert len(results["out3"]) + len(set(results["x"])) == len([name for name in os.listdir(em.data_path)]) - 1
+        # assert len(results["out3"]) + len(set(results["x"])) == len([name for name in os.listdir(em.data_path)]) - 1
+        assert len(results["out3"]) * 2 == len([name for name in os.listdir(em.data_path)]) - 1
 
     def test_pipeline_plot_results(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=True)
