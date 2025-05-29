@@ -199,17 +199,20 @@ def savefigure(path2plot, dpi=None):
     plt.close()
 
 
-def plottify(plot_func):
-    def wrapper(em: ExperimentManager, filename: str, folder="", path=None, verbose=True, **kwargs):
-        variables = set(itertools.chain(*[task.required_inputs for task in em.tasks]))
-        results = em.run_pipeline(**filter_dict(kwargs, variables))
-        results = filter_dict(results, inspect.getfullargspec(plot_func)[0])  # get only variables relevant for plot
-        kwargs = filter_dict(kwargs, inspect.getfullargspec(plot_func)[0])  # get only params relevant for plot
-        kwargs = filter_dict(kwargs, keys_not=list(results.keys()))  # get only params for plot (not already in results)
-        path2figure = f"{path if path is not None else em.path}/{folder}/{filename}"
-        with savefigure(path2figure):
-            plot_func(**kwargs, **results)
-        if verbose: print("Figure saved in:", path2figure)
-        return path2figure
-
-    return wrapper
+def plottify(variables_assumed_unique=()):
+    def decorator(plot_func):
+        def wrapper(em: ExperimentManager, filename: str, folder="", path=None, verbose=True, **kwargs):
+            variables = set(itertools.chain(*[task.required_inputs for task in em.tasks]))
+            results = em.run_pipeline(**filter_dict(kwargs, variables))
+            results = filter_dict(results, inspect.getfullargspec(plot_func)[0])  # get only variables relevant for plot
+            kwargs = filter_dict(kwargs, inspect.getfullargspec(plot_func)[0])  # get only params relevant for plot
+            kwargs = filter_dict(kwargs, keys_not=list(results.keys()))  # get only params for plot (not already in results)
+            for k in variables_assumed_unique:
+                results[k] = results[k][0]
+            path2figure = f"{path if path is not None else em.path}/{folder}/{filename}"
+            with savefigure(path2figure):
+                plot_func(**kwargs, **results)
+            if verbose: print("Figure saved in:", path2figure)
+            return path2figure
+        return wrapper
+    return decorator

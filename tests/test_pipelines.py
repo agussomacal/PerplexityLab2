@@ -158,7 +158,7 @@ class TestPipelines(unittest.TestCase):
             Task(lambda a, x, b: ({"out1": a * x ** 2 + b}, dict())),
         )
 
-        @plottify
+        @plottify()
         def plot(a, x, out1):
             pd.DataFrame({"a": a, "x": x, "out1": out1}).groupby("a").plot(x="x", y="out1")
 
@@ -169,6 +169,17 @@ class TestPipelines(unittest.TestCase):
             a=[1, 2],
         )
         assert os.path.exists(path2plot)
+
+        @plottify(variables_assumed_unique=("a",))
+        def plot(a, x, out1):
+            (np.array(out1) - np.array(x)) * a
+
+        em.set_defaults(a=1)
+        path2plot = plot(
+            em=em,
+            filename="test_plot.png",
+            x=np.linspace(-1, 1, 10),
+        )
 
     def tearDown(self):
         shutil.rmtree(self.path)

@@ -36,7 +36,9 @@ def plx_partial(function: Callable, *args, **kwargs) -> Callable:
 
 def plx_partial_class(class_type: Type, *args, **kwargs) -> Type:
     return type("plx_" + class_type.__name__, (class_type,),
-                {"__init__": lambda self, *arg2, **kwargs2: plx_partial(class_type.__init__, *args, **kwargs)(self=self, *arg2, **kwargs2)})
+                {"__init__": lambda self, *arg2, **kwargs2: plx_partial(class_type.__init__, *args, **kwargs)(self=self,
+                                                                                                              *arg2,
+                                                                                                              **kwargs2)})
 
 
 # ---------- File utils ---------- #
