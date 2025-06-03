@@ -13,6 +13,7 @@ import hashlib
 
 import joblib
 import numpy as np
+from matplotlib import pyplot as plt
 
 
 # ----------- time -----------
@@ -25,6 +26,19 @@ def timeit(msg, verbose=True):
     if verbose:
         print('\r -> duracion {}: {:.2f}s'.format(msg, time.time() - t0))
 
+
+# ----------- plots -----------
+def set_latex_fonts(font_family="amssymb", packages=("amsmath",)):
+    # ("babel", "lmodern", "amsmath", "amsthm", "amssymb", "amsfonts", "fontenc", "inputenc")
+    # preamble=r'\usepackage{babel}\usepackage{lmodern}\usepackage{amsmath,amsthm,amssymb}\usepackage{amsfonts}\usepackage[T1]{fontenc}\usepackage[utf8]{inputenc}'
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": font_family,
+    })
+    plt.rc('text.latex',
+           preamble=r''.join([f"\\usepackage{{{package}}}" for package in packages])
+           # )
+           )
 
 # ----------- func utils -----------
 def plx_partial(function: Callable, *args, **kwargs) -> Callable:
