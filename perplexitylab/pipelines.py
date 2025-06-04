@@ -211,7 +211,7 @@ def plottify(variables_assumed_unique=()):
             kwargs = filter_dict(kwargs,
                                  keys_not=list(results.keys()))  # get only params for plot (not already in results)
             for k in variables_assumed_unique:
-                results[k] = results[k][0]
+                results[k] = em.constants[k] if k in em.constants else results[k].pop()
             path2figure = f"{path if path is not None else em.path}/{folder}/{filename}"
             with savefigure(path2figure):
                 plot_func(**kwargs, **results)
