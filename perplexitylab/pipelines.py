@@ -1,60 +1,23 @@
 import inspect
 import itertools
-import multiprocessing
 import os.path
 import warnings
-from collections import OrderedDict, defaultdict, namedtuple
+from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, List, Dict
 
 import dill
-from pathos.multiprocessing import Pool
-from pathlib import Path
-from typing import Callable, List, Dict, Union, Set
-
 import joblib
-import numpy as np
 import matplotlib.pyplot as plt
 
-from perplexitylab.miscellaneous import make_hash
-
-
-# ---------- Parallel or not parallel ----------
-def get_workers(workers):
-    if workers > 0:
-        return min((multiprocessing.cpu_count() - 1, workers))
-    else:
-        return max((1, multiprocessing.cpu_count() + workers))
-
-
-def get_appropiate_number_of_workers(workers, n):
-    return int(np.max((1, np.min((multiprocessing.cpu_count() - 1, n, workers)))))
-
-
-def get_map_function(workers=1):
-    return map if workers == 1 else Pool(get_workers(workers)).imap_unordered
-
-
-# ---------- Dict tools ----------
-def filter_dict(dictionary: Dict, keys: Union[Set, List] = None, keys_not: Union[Set, List] = ()):
-    keys = dictionary.keys() if keys is None else keys
-    return {k: dictionary[k] for k in keys if k in dictionary.keys() and k not in keys_not}
-
-
-# ---------- Verbosity tools ----------
-@contextmanager
-def message(msg_before, msg_after):
-    print("\r" + msg_before, end='')
-    yield
-    print("\r" + msg_after)
+from perplexitylab.miscellaneous import make_hash, get_map_function, filter_dict, filter_for_func, message
 
 
 # ================================================ #
 #                ExperimentManager                 #
 # ================================================ #
-# Task = namedtuple("Task", ["name", "task", "required_inputs"])
-
-
 @dataclass
 class Task:
     function: Callable
@@ -206,10 +169,9 @@ def plottify(variables_assumed_unique=()):
         def wrapper(em: ExperimentManager, filename: str, folder="", path=None, verbose=True, **kwargs):
             variables = set(itertools.chain(*[task.required_inputs for task in em.tasks]))
             results = em.run_pipeline(**filter_dict(kwargs, variables))
-            results = filter_dict(results, inspect.getfullargspec(plot_func)[0])  # get only variables relevant for plot
-            kwargs = filter_dict(kwargs, inspect.getfullargspec(plot_func)[0])  # get only params relevant for plot
-            kwargs = filter_dict(kwargs,
-                                 keys_not=list(results.keys()))  # get only params for plot (not already in results)
+            results = filter_for_func(plot_func, results)  # get only variables relevant for plot
+            kwargs = filter_for_func(plot_func, kwargs)  # get only params relevant for plot
+            kwargs = filter_dict(kwargs, keys_not=list(results.keys()))  # get params for plot (not already in results)
             for k in variables_assumed_unique:
                 results[k] = em.constants[k] if k in em.constants else results[k].pop()
             path2figure = f"{path if path is not None else em.path}/{folder}/{filename}"

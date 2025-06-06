@@ -1,19 +1,53 @@
 import functools
+import hashlib
 import inspect
+import multiprocessing
 import os
 import pickle
 import shutil
 import time
-from collections import OrderedDict
 from contextlib import contextmanager
-from functools import partial, partialmethod
 from pathlib import Path
-from typing import Callable, Dict, Type
-import hashlib
+from typing import Callable, Dict, Type, Union, Set, List
 
 import joblib
 import numpy as np
 from matplotlib import pyplot as plt
+from pathos.multiprocessing import Pool
+
+
+# ---------- Parallel or not parallel ----------
+def get_workers(workers):
+    if workers > 0:
+        return min((multiprocessing.cpu_count() - 1, workers))
+    else:
+        return max((1, multiprocessing.cpu_count() + workers))
+
+
+def get_appropriate_number_of_workers(workers, n):
+    return int(np.max((1, np.min((multiprocessing.cpu_count() - 1, n, workers)))))
+
+
+def get_map_function(workers=1):
+    return map if workers == 1 else Pool(get_workers(workers)).imap_unordered
+
+
+# ---------- Dict tools ----------
+def filter_dict(dictionary: Dict, keys: Union[Set, List] = None, keys_not: Union[Set, List] = ()):
+    keys = dictionary.keys() if keys is None else keys
+    return {k: dictionary[k] for k in keys if k in dictionary.keys() and k not in keys_not}
+
+
+def filter_for_func(func: Callable, dictionary: Dict):
+    return filter_dict(dictionary, inspect.getfullargspec(func)[0])
+
+
+# ---------- Verbosity tools ----------
+@contextmanager
+def message(msg_before, msg_after):
+    print("\r" + msg_before, end='')
+    yield
+    print("\r" + msg_after)
 
 
 # ----------- time -----------
@@ -39,6 +73,7 @@ def set_latex_fonts(font_family="amssymb", packages=("amsmath",)):
            preamble=r''.join([f"\\usepackage{{{package}}}" for package in packages])
            # )
            )
+
 
 # ----------- func utils -----------
 def plx_partial(function: Callable, *args, **kwargs) -> Callable:
@@ -72,8 +107,6 @@ def clean_str4saving(s):
     return s.replace("(", "").replace(")", "").replace("[", "").replace("]", "").replace(",", "").replace(
         ".", "").replace(";", "").replace(":", "").replace(" ", "_")
 
-
-import copy
 
 DictProxyType = type(object.__dict__)
 
