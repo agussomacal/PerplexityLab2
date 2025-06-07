@@ -44,7 +44,7 @@ def filter_for_func(func: Callable, dictionary: Dict):
 
 class DictList:
     def __init__(self):
-        self.data = {}
+        self.data = dict()
 
     def append(self, d):
         self.update({k: [v] for k, v in d.items()})
@@ -62,6 +62,9 @@ class DictList:
         if key not in self.data:
             self.data[key] = []
         self.data[key].extend(value)
+
+    def todict(self):
+        return self.data
 
 
 # ---------- Verbosity tools ----------

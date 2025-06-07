@@ -132,5 +132,10 @@ class TestDictLike(unittest.TestCase):
         d['a'] = [1, 2]
         self.assertEqual(d.data, {'a': [1, 2]})
 
+    def test_todict(self):
+        d = DictList()
+        d['a'] = [1, 2]
+        self.assertEqual(d.todict(), {"a": [1, 2]})
+
     if __name__ == '__main__':
         unittest.main()
