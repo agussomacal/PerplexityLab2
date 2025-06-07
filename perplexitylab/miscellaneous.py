@@ -42,6 +42,28 @@ def filter_for_func(func: Callable, dictionary: Dict):
     return filter_dict(dictionary, inspect.getfullargspec(func)[0])
 
 
+class DictList:
+    def __init__(self):
+        self.data = {}
+
+    def append(self, d):
+        self.update({k: [v] for k, v in d.items()})
+
+    def update(self, d):
+        for key, value in d.items():
+            if key not in self.data:
+                self.data[key] = []
+            self.data[key].extend(value)
+
+    def __getitem__(self, key):
+        return self.data.get(key, [])
+
+    def __setitem__(self, key, value):
+        if key not in self.data:
+            self.data[key] = []
+        self.data[key].extend(value)
+
+
 # ---------- Verbosity tools ----------
 @contextmanager
 def message(msg_before, msg_after):

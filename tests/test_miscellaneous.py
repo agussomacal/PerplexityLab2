@@ -6,7 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
-from perplexitylab.miscellaneous import if_exist_load_else_do, make_hash, plx_partial, plx_partial_class
+from perplexitylab.miscellaneous import if_exist_load_else_do, make_hash, plx_partial, plx_partial_class, \
+    DictList
 
 
 class TestVizUtils(unittest.TestCase):
@@ -95,6 +96,41 @@ class TestVizUtils(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.path)
+
+    if __name__ == '__main__':
+        unittest.main()
+
+
+class TestDictLike(unittest.TestCase):
+
+    def test_update(self):
+        d = DictList()
+        self.assertEqual(d.data, {})
+
+        d.update({'a': [1, 2], 'b': [3, 4]})
+        self.assertEqual(d.data, {'a': [1, 2], 'b': [3, 4]})
+
+    def test_update_merges_lists(self):
+        d = DictList()
+        d.update({'a': [1, 2]})
+        d.update({'a': [3, 4]})
+        self.assertEqual(d.data, {'a': [1, 2, 3, 4]})
+
+    def test_update_adds_new_keys(self):
+        d = DictList()
+        d.update({'a': [1, 2]})
+        d.update({'b': [3, 4]})
+        self.assertEqual(d.data, {'a': [1, 2], 'b': [3, 4]})
+
+    def test_getitem(self):
+        d = DictList()
+        d['a'] = [1, 2]
+        self.assertEqual(d['a'], [1, 2])
+
+    def test_setitem(self):
+        d = DictList()
+        d['a'] = [1, 2]
+        self.assertEqual(d.data, {'a': [1, 2]})
 
     if __name__ == '__main__':
         unittest.main()
