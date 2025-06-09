@@ -108,8 +108,8 @@ class ExperimentManager:
             # ----- Run next nested task ----- #
             inputs.update(single_value_variables)
             for new_variable_values in itertools.product(*multiple_value_variables.values()):
-                inputs.update(dict(zip(multiple_value_variables, new_variable_values)))
-                for single_result in self.run_tasks(inputs, input_hash=input_hash, order=order + 1):
+                new_inputs = {**inputs, **dict(zip(multiple_value_variables, new_variable_values))}
+                for single_result in self.run_tasks(new_inputs, input_hash=input_hash, order=order + 1):
                     yield single_result
 
     def get_stored_result_filepath(self, task_name, task, inputs_for_task, h):

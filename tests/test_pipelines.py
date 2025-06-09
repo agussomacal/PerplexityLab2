@@ -48,8 +48,6 @@ class TestPipelines(unittest.TestCase):
         assert set(map(len, results.values())) == {6}
 
     def test_pipeline_nested_variables(self):
-        # TODO: nested variables do not work.
-        assert False
         em = ExperimentManager(name="Experiment", path=self.path, save_results=False)
         em.set_pipeline(
             Task(lambda x: ({"out1": x}, {"out_multi": [x, x + 1]}), task_name="function1"),
