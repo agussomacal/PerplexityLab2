@@ -7,7 +7,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from perplexitylab.pipelines import ExperimentManager, plottify, Task
+from perplexitylab.experiment_tools import ExperimentManager, Task
+from perplexitylab.plot_tools import plottify
 
 
 class TestPipelines(unittest.TestCase):
@@ -150,35 +151,6 @@ class TestPipelines(unittest.TestCase):
         # assert len(results["out3"]) + len(set(results["x"])) == len([name for name in os.listdir(em.data_path)]) - 1
         assert len(results["out3"]) * 2 == len([name for name in os.listdir(em.data_path)]) - 1
 
-    def test_pipeline_plot_results(self):
-        em = ExperimentManager(name="Experiment", path=self.path, save_results=True)
-        em.set_defaults(b=0.5)
-        em.set_pipeline(
-            Task(lambda a, x, b: ({"out1": a * x ** 2 + b}, dict())),
-        )
-
-        @plottify()
-        def plot(a, x, out1):
-            pd.DataFrame({"a": a, "x": x, "out1": out1}).groupby("a").plot(x="x", y="out1")
-
-        path2plot = plot(
-            em=em,
-            filename="test_plot.png",
-            x=np.linspace(-1, 1, 10),
-            a=[1, 2],
-        )
-        assert os.path.exists(path2plot)
-
-        @plottify(variables_assumed_unique=("a",))
-        def plot(a, x, out1):
-            (np.array(out1) - np.array(x)) * a
-
-        em.set_defaults(a=1)
-        path2plot = plot(
-            em=em,
-            filename="test_plot.png",
-            x=np.linspace(-1, 1, 10),
-        )
 
     def tearDown(self):
         shutil.rmtree(self.path)

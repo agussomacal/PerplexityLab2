@@ -1,18 +1,17 @@
+import copy
 import inspect
 import itertools
 import os.path
 import warnings
 from collections import OrderedDict, defaultdict
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, List, Dict
 
 import dill
 import joblib
-import matplotlib.pyplot as plt
 
-from perplexitylab.miscellaneous import make_hash, get_map_function, filter_dict, filter_for_func, message
+from perplexitylab.miscellaneous import make_hash, get_map_function, filter_dict, message
 
 
 # ================================================ #
@@ -60,6 +59,11 @@ class ExperimentManager:
 
     def set_pipeline(self, *tasks: Task):
         self.tasks = tasks
+
+    def add_post_processing(self, *tasks: Task):
+        new_experiment_manager = copy.deepcopy(self)
+        new_experiment_manager.set_pipeline(*self.tasks, *tasks)
+        return new_experiment_manager
 
     def run_pipeline(self, **kwargs: List):
         _, explored_inputs = self.load_explored_inputs()
@@ -151,35 +155,3 @@ class ExperimentManager:
                 for k, v in singe_result.items():
                     result_dict[k].append(v)
         return result_dict
-
-
-# ================================================ #
-#                     Plotting                     #
-# ================================================ #
-@contextmanager
-def savefigure(path2plot, dpi=None):
-    Path(path2plot).parent.mkdir(parents=True, exist_ok=True)
-    yield
-    plt.savefig(path2plot, dpi=dpi)
-    plt.close()
-
-
-def plottify(variables_assumed_unique=()):
-    def decorator(plot_func):
-        def wrapper(em: ExperimentManager, filename: str, folder="", path=None, verbose=True, **kwargs):
-            variables = set(itertools.chain(*[task.required_inputs for task in em.tasks]))
-            results = em.run_pipeline(**filter_dict(kwargs, variables))
-            results = filter_for_func(plot_func, results)  # get only variables relevant for plot
-            kwargs = filter_for_func(plot_func, kwargs)  # get only params relevant for plot
-            kwargs = filter_dict(kwargs, keys_not=list(results.keys()))  # get params for plot (not already in results)
-            for k in variables_assumed_unique:
-                results[k] = em.constants[k] if k in em.constants else results[k].pop()
-            path2figure = f"{path if path is not None else em.path}/{folder}/{filename}"
-            with savefigure(path2figure):
-                plot_func(**kwargs, **results)
-            if verbose: print("Figure saved in:", path2figure)
-            return path2figure
-
-        return wrapper
-
-    return decorator
