@@ -6,17 +6,31 @@ import warnings
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Dict
+from typing import Callable, List, Dict, Any, Tuple, Union
 
 import dill
 import joblib
 
-from perplexitylab.miscellaneous import make_hash, get_map_function, filter_dict, message
+from perplexitylab.miscellaneous import make_hash, get_map_function, filter_dict, message, DictList
 
 
 # ================================================ #
 #                ExperimentManager                 #
 # ================================================ #
+def variables(**kwargs: List):
+    assert all(
+        map(lambda x: isinstance(x, list), kwargs.values())), "All variables should be lists to iterate experiments."
+    return kwargs
+
+
+def constants(**kwargs: Any):
+    return kwargs
+
+
+def experimental_setup(variables: List[Dict[str, List]] = variables(), **constants: Any):
+    return variables, constants
+
+
 @dataclass
 class Task:
     function: Callable
@@ -55,19 +69,47 @@ class ExperimentManager:
         self.constants = OrderedDict()
 
     def set_defaults(self, **constants):
+        params_in_common = self.experiment_parameters.intersection(constants.keys())
+        assert params_in_common == set(constants.keys()), \
+            (f"Constants should be one of: {'\n\t'.join(self.experiment_parameters)}\n"
+             f"but found [{set(constants.keys()).difference(self.experiment_parameters)}] not in parameters, maybe a misspelling error?")
         self.constants.update(**constants)
 
     def set_pipeline(self, *tasks: Task):
         self.tasks = tasks
+
+    @property
+    def experiment_parameters(self):
+        return set(itertools.chain(*[task.required_inputs for task in self.tasks]))
 
     def add_post_processing(self, *tasks: Task):
         new_experiment_manager = copy.deepcopy(self)
         new_experiment_manager.set_pipeline(*self.tasks, *tasks)
         return new_experiment_manager
 
-    def run_pipeline(self, **kwargs: List):
+    def run_experiments(self, experiment_setup: Union[
+        Tuple[Dict[str, Any], Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]]],
+                        common_experiment_setup: Tuple[Dict[str, Any], Dict[str, Any]] = ({}, {}),
+                        required_variables=None) -> Dict[str, Any]:
+        experiment_setup = (experiment_setup if isinstance(experiment_setup, list) else [experiment_setup])
+        results = DictList()
+        common_variables, common_constants = common_experiment_setup
+        self.set_defaults(**common_constants)
+        for individual_variables, individual_constants in experiment_setup:
+            self.set_defaults(**individual_constants)
+            new_variables = common_variables.copy()
+            new_variables.update(individual_variables)
+            results.update(self.run_pipeline(required_variables, **new_variables))
+        return results.todict()
+
+    def run_pipeline(self, required_variables: List[str] = None, **kwargs: List):
+        params_in_common = self.experiment_parameters.intersection(kwargs.keys())
+        assert params_in_common == set(kwargs.keys()), \
+            (f"Variables should be one of: {'\n\t'.join(self.experiment_parameters)}\n"
+             f"but found [{set(kwargs.keys()).difference(self.experiment_parameters)}] not in parameters, maybe a misspelling error?")
+
         _, explored_inputs = self.load_explored_inputs()
-        result_dict = defaultdict(list)
+        result_dict = DictList()
         variables = {k: [v] for k, v in self.constants.items()}
         variables.update(**kwargs)
         pmap = get_map_function(self.num_cpus)
@@ -78,15 +120,19 @@ class ExperimentManager:
                 new_inputs = [singe_result[k] for k in variables.keys()]
                 if self.verbose: print("_____________________")
                 if self.verbose: print("(", i, ") Variables:", dict(zip(variables, new_inputs)))
-                for k, v in singe_result.items():
-                    result_dict[k].append(v)
+                # for k, v in singe_result.items():
+                #     if required_variables is not None and k not in required_variables: continue
+                #     result_dict[k].append(v)
+                result_dict.append(
+                    singe_result if required_variables is None else {k: singe_result[k] for k in singe_result if
+                                                                     k in required_variables})
 
                 for saved_inputs in explored_inputs:
                     if all([v1 == v2 for v1, v2 in zip(new_inputs, saved_inputs)]): break
                 else:
                     explored_inputs.append(new_inputs)
         self.save_explored_inputs(input_names=tuple(list(variables.keys())), explored_inputs=explored_inputs)
-        return result_dict
+        return result_dict.todict()
 
     def run_tasks(self, inputs: Dict, input_hash, order=0):
         # TODO: h, the input_hash creates an output for al the graph even if some inputs are not used for an intermediate function

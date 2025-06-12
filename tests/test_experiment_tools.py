@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from perplexitylab.experiment_tools import ExperimentManager, Task
+from perplexitylab.experiment_tools import ExperimentManager, Task, experimental_setup, variables, constants
 from perplexitylab.plot_tools import plottify
 
 
@@ -20,11 +20,11 @@ class TestPipelines(unittest.TestCase):
 
     def test_pipeline(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=False)
-        em.set_defaults(a=2)
         em.set_pipeline(
             Task(lambda a, x: {"out1": a * x}, task_name="function1"),
             Task(lambda x, y: {"out2": x + y}, task_name="function2"),
         )
+        em.set_defaults(a=2)
         results = em.run_pipeline(
             x=[1, 2, 3],
             y=[10, 20],
@@ -33,13 +33,56 @@ class TestPipelines(unittest.TestCase):
         assert len(results) == 5
         assert set(map(len, results.values())) == {6}
 
-    def test_pipeline_parallel(self):
-        em = ExperimentManager(name="Experiment", path=self.path, save_results=False, num_cpus=2)
-        em.set_defaults(a=2)
+    def test_pipeline_extract(self):
+        em = ExperimentManager(name="Experiment", path=self.path, save_results=False)
         em.set_pipeline(
             Task(lambda a, x: {"out1": a * x}, task_name="function1"),
             Task(lambda x, y: {"out2": x + y}, task_name="function2"),
         )
+        em.set_defaults(a=2)
+        results = em.run_pipeline(
+            x=[1, 2, 3],
+            y=[10, 20],
+            required_variables=["out1", "out2"],
+        )
+
+        assert len(results) == 2
+        assert set(map(len, results.values())) == {6}
+
+    def test_run_experiments(self):
+        em = ExperimentManager(name="Experiment", path=self.path, save_results=False)
+        em.set_pipeline(
+            Task(lambda a, x: {"out1": a * x}, task_name="function1"),
+            Task(lambda x, y: {"out2": x + y}, task_name="function2"),
+        )
+        results = em.run_experiments(
+            experiment_setup=[
+                experimental_setup(variables(x=[1, 2], y=[10, 20]), a=2),
+                experimental_setup(variables(x=[3], y=[10, 20]), a=2),
+            ],
+            required_variables=["out1", "out2"],
+        )
+        assert len(results) == 2
+        assert set(map(len, results.values())) == {6}
+
+        results = em.run_experiments(
+            experiment_setup=[
+                experimental_setup(variables(x=[1, 2])),
+                experimental_setup(variables(x=[3])),
+            ],
+            common_experiment_setup=experimental_setup(variables(y=[10, 20]), a=2),
+            required_variables=["out1", "out2"],
+        )
+        assert len(results) == 2
+        assert set(map(len, results.values())) == {6}
+
+    def test_pipeline_parallel(self):
+        em = ExperimentManager(name="Experiment", path=self.path, save_results=False, num_cpus=2)
+        em.set_pipeline(
+            Task(lambda a, x: {"out1": a * x}, task_name="function1"),
+            Task(lambda x, y: {"out2": x + y}, task_name="function2"),
+        )
+        em.set_defaults(a=2)
         results = em.run_pipeline(
             x=[1, 2, 3],
             y=[10, 20],
@@ -64,12 +107,12 @@ class TestPipelines(unittest.TestCase):
 
     def test_pipeline_save_load(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=True, recalculate=True)
-        em.set_defaults(a=2)
         em.set_pipeline(
             Task(lambda a, x: ({"out1": a * x}, {"out_multi": [a * x, a * x + 1]})),
             Task(lambda a, x, y, out_multi: {"out2": out_multi - a * x + y}),
             Task(lambda a, x, y, out_multi: {"out3": time.sleep(0.01)}),
         )
+        em.set_defaults(a=2)
         t0 = time.time()
         em.run_pipeline(
             x=[1, 2, 3, 4, 5],
@@ -89,12 +132,12 @@ class TestPipelines(unittest.TestCase):
 
     def test_pipeline_recalculate(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=True, recalculate=True)
-        em.set_defaults(a=2)
         em.set_pipeline(
             Task(lambda a, x: ({"out1": a * x}, {"out_multi": [a * x, a * x + 1]})),
             Task(lambda a, x, y, out_multi: {"out2": out_multi - a * x + y}),
             Task(lambda a, x, y, out_multi: {"out3": time.sleep(0.01)}),
         )
+        em.set_defaults(a=2)
         t0 = time.time()
         em.run_pipeline(
             x=[1, 2, 3],
@@ -113,12 +156,12 @@ class TestPipelines(unittest.TestCase):
 
     def test_pipeline_load_results(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=True)
-        em.set_defaults(a=2)
         em.set_pipeline(
             Task(lambda a, x: {"out1": a * x}),
             Task(lambda a, x, y, out1: {"out2": out1 - a * x + y}),
             Task(lambda a, x, y, out1: {"out3": out1 + 2}),
         )
+        em.set_defaults(a=2)
         results = em.run_pipeline(
             x=[1, 2, 3],
             y=[10, 20],
@@ -130,11 +173,11 @@ class TestPipelines(unittest.TestCase):
 
     def test_pipeline_recalculating_tasks(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=True)
-        em.set_defaults(a=2)
         em.set_pipeline(
             Task(lambda a, x: {"out1": a * x}, save=False),
             Task(lambda y, out1: {"out3": out1 + y}),
         )
+        em.set_defaults(a=2)
         results = em.run_pipeline(
             x=[1, 2, 3],
             y=[10, 20],
@@ -150,7 +193,6 @@ class TestPipelines(unittest.TestCase):
         )
         # assert len(results["out3"]) + len(set(results["x"])) == len([name for name in os.listdir(em.data_path)]) - 1
         assert len(results["out3"]) * 2 == len([name for name in os.listdir(em.data_path)]) - 1
-
 
     def tearDown(self):
         shutil.rmtree(self.path)
