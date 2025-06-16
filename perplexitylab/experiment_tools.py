@@ -71,7 +71,7 @@ class ExperimentManager:
     def set_defaults(self, **constants):
         params_in_common = self.experiment_parameters.intersection(constants.keys())
         assert params_in_common == set(constants.keys()), \
-            (f"Constants should be one of: {'\n\t'.join(self.experiment_parameters)}\n"
+            (f"Constants should be one of:\n{'\n\t'.join(self.experiment_parameters)}\n"
              f"but found [{set(constants.keys()).difference(self.experiment_parameters)}] not in parameters, maybe a misspelling error?")
         self.constants.update(**constants)
 

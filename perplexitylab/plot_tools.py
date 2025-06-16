@@ -1,12 +1,9 @@
 import inspect
-import itertools
 from contextlib import contextmanager
-from email.policy import default
 from pathlib import Path
 from typing import Callable, Iterable, Tuple, Dict, Any, List, Union
 
 import pandas as pd
-from fontTools.merge.util import equal
 from makefun import with_signature
 from matplotlib import pyplot as plt
 import seaborn as sns
@@ -29,19 +26,27 @@ def savefigure(path2plot, dpi=None):
 # ================================================ #
 #          Connect plot with experiment            #
 # ================================================ #
-def plx_generic_plot_styler(figsize=(8, 6), log="", xlabel=None, ylabel=None, xlabel_fontsize=None,
-                            ylabel_fontsize=None, legend_fontsize=None, legend_loc=None, bbox_to_anchor=None):
+def plx_generic_plot_styler(figsize=(8, 6), log="",
+                            xlabel=None, xlabel_fontsize=None, xticks=None, xticks_labels=None, xlim=None,
+                            ylabel=None, ylabel_fontsize=None, yticks=None, yticks_labels=None, ylim=None,
+                            legend_fontsize=None, legend_loc=None, bbox_to_anchor=None):
     def styler_function():
         fig, ax = plt.subplots(figsize=figsize)
 
         yield fig, ax
 
-        if "x" in log: ax.set_xscale("log")
-        if "y" in log: ax.set_yscale("log")
         if xlabel is not None: ax.set_xlabel(xlabel)
         if xlabel_fontsize is not None: ax.set_xlabel(ax.get_xlabel(), fontsize=xlabel_fontsize)
         if ylabel is not None: ax.set_ylabel(ylabel)
         if ylabel_fontsize is not None: ax.set_ylabel(ax.get_ylabel(), fontsize=ylabel_fontsize)
+        if xlim is not None: ax.set_xlim(xlim)
+        if ylim is not None: ax.set_ylim(ylim)
+        if "x" in log: ax.set_xscale("log")
+        if "y" in log: ax.set_yscale("log")
+        if xticks is not None: ax.set_xticks(xticks, xticks)
+        if yticks is not None: ax.set_yticks(yticks, yticks)
+        if xticks_labels is not None: ax.set_xticklabels(xticks_labels)
+        if yticks_labels is not None: ax.set_xticklabels(yticks_labels)
         if legend_fontsize is not None or legend_loc is not None or bbox_to_anchor is not None:
             ax.legend(fontsize=legend_fontsize,
                       bbox_to_anchor=bbox_to_anchor,
@@ -109,7 +114,8 @@ def unfold(x_var, y_var, label_var):
     return unfolded_x, unfolded_y, unfolded_label
 
 
-def plx_generic_plot(x_var: str, y_var: str, label_var: str, plotting_function: Callable, colors=None, **kwargs):
+def plx_generic_plot(x_var: str, y_var: str, label_var: str, plotting_function: Callable, reduce: Callable = None,
+                     colors=None, **kwargs):
     # styler_args = inspect.getfullargspec(style_function)
     # style_args = ','.join(
     #     [f"{arg}={'""' if default == '' else default}" for arg, default in zip(styler_args.args, styler_args.defaults)])
@@ -123,7 +129,11 @@ def plx_generic_plot(x_var: str, y_var: str, label_var: str, plotting_function: 
         # with contextmanager(style_function)(**filter_for_func(style_function, vars2plot)) as (fig, ax):
         x, y, label = unfold(vars2plot[x_var], vars2plot[y_var], vars2plot[label_var])
         data = pd.DataFrame.from_dict({x_var: x, y_var: y, label_var: label})
-        plotting_function(data, ax=ax, x=x_var, y=y_var, hue=label_var, palette=vars2plot["colors"])
+        if reduce is not None:
+            data = data.groupby([x_var, label_var]).apply(reduce)
+            data.name = y_var
+            data = data.reset_index()
+        plotting_function(data=data, ax=ax, x=x_var, y=y_var, hue=label_var, palette=vars2plot["colors"])
         ax.set(xlabel=x_var, ylabel=y_var)
 
     return generic_plot(colors=colors, **kwargs)
