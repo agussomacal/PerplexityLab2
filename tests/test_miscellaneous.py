@@ -26,6 +26,7 @@ class TestVizUtils(unittest.TestCase):
         assert len(list(group(d, "b"))) == 2
         assert len(list(group(d, "c"))) == 2
         assert len(list(group(d, "d"))) == 1
+        assert len(list(group(d, ))) == 1
 
     def test_plx_partial(self):
         def add(a, b):
