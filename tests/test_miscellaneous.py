@@ -7,13 +7,25 @@ from pathlib import Path
 import numpy as np
 
 from perplexitylab.miscellaneous import if_exist_load_else_do, make_hash, plx_partial, plx_partial_class, \
-    DictList
+    DictList, group
 
 
 class TestVizUtils(unittest.TestCase):
     def setUp(self) -> None:
         self.path = Path(__file__).parent.joinpath(".TestMicellaneous")
         self.path.mkdir(parents=True, exist_ok=True)
+
+    def test_group(self):
+        d = {
+            "a": [1, 2, 3],
+            "b": [1, 1, 3],
+            "c": [1, 2, 2],
+            "d": ["1", "1", "1"],
+        }
+        assert len(list(group(d, "a"))) == 3
+        assert len(list(group(d, "b"))) == 2
+        assert len(list(group(d, "c"))) == 2
+        assert len(list(group(d, "d"))) == 1
 
     def test_plx_partial(self):
         def add(a, b):

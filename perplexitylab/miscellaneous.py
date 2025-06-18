@@ -67,6 +67,14 @@ class DictList:
         return self.data
 
 
+def group(dictionary, *keys):
+    membership = np.array(list(map(make_hash, zip(*[dictionary[k] for k in keys]))))
+    classes = np.unique(membership)
+    for c in classes:
+        yield ({k: [e for i, e in enumerate(v) if membership[i] == c] for k, v in dictionary.items()},
+               {k: [e for i, e in enumerate(dictionary[k]) if membership[i] == c][0] for k in keys})
+
+
 # ---------- Verbosity tools ----------
 @contextmanager
 def message(msg_before, msg_after):

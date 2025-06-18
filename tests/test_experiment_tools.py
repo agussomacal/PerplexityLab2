@@ -33,6 +33,21 @@ class TestPipelines(unittest.TestCase):
         assert len(results) == 5
         assert set(map(len, results.values())) == {6}
 
+    def test_add_tasks(self):
+        em = ExperimentManager(name="Experiment", path=self.path, save_results=False)
+        em = em.add_tasks(
+            out1=lambda a, x: a * x,
+            out2=lambda x, y: x + y,
+        )
+        em.set_defaults(a=2)
+        results = em.run_pipeline(
+            x=[1, 2, 3],
+            y=[10, 20],
+        )
+
+        assert len(results) == 5
+        assert set(map(len, results.values())) == {6}
+
     def test_pipeline_extract(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=False)
         em.set_pipeline(

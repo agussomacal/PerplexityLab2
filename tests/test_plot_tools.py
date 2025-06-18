@@ -33,7 +33,7 @@ class TestPipelines(unittest.TestCase):
             em=self.em, filename="test_plot.png",
             experiment_setup=experimental_setup(variables(x=np.linspace(-1, 1, 10).tolist(), a=[10, 20])),
         )
-        assert os.path.exists(path2plot)
+        assert all(map(os.path.exists, path2plot))
 
         @plottify(variables_assumed_unique=("a",))
         def plot(fig, ax, a, x, out1):
@@ -44,6 +44,7 @@ class TestPipelines(unittest.TestCase):
             experiment_setup=experimental_setup(variables(x=np.linspace(-1, 1, 10).tolist()), a=1),
             style_function=plx_generic_plot_styler(xlabel="XLABEL")
         )
+        assert all(map(os.path.exists, path2plot))
 
     def test_plx_lineplot(self):
         plx_lineplot(

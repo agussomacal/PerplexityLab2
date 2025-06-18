@@ -10,6 +10,7 @@ from typing import Callable, List, Dict, Any, Tuple, Union
 
 import dill
 import joblib
+from makefun import with_signature
 
 from perplexitylab.miscellaneous import make_hash, get_map_function, filter_dict, message, DictList
 
@@ -44,6 +45,17 @@ class Task:
     @property
     def name(self):
         return self.function.__name__ if self.task_name is None else self.task_name
+
+
+def single_output_function_to_task(output_variable: str, function: Callable):
+    args = inspect.getfullargspec(function).args
+
+    @with_signature(
+        f"{function.__name__ if 'lambda' not in function.__name__ else 'func_' + output_variable}({', '.join(args)})")
+    def new_function(**kwargs):
+        return {output_variable: function(**kwargs)}
+
+    return Task(function=new_function, save=False, task_name=function.__name__)
 
 
 PROBLEM_LOADING = (None, None)
@@ -82,9 +94,10 @@ class ExperimentManager:
     def experiment_parameters(self):
         return set(itertools.chain(*[task.required_inputs for task in self.tasks]))
 
-    def add_post_processing(self, *tasks: Task):
+    def add_tasks(self, *tasks: Task, **kwargs):
         new_experiment_manager = copy.deepcopy(self)
-        new_experiment_manager.set_pipeline(*self.tasks, *tasks)
+        new_experiment_manager.set_pipeline(*self.tasks, *tasks,
+                                            *[single_output_function_to_task(k, f) for k, f in kwargs.items()])
         return new_experiment_manager
 
     def run_experiments(self, experiment_setup: Union[
@@ -180,13 +193,15 @@ class ExperimentManager:
 
     def save_explored_inputs(self, input_names, explored_inputs):
         # dill to pickle objects created on the fly
-        dill.dump((input_names, explored_inputs), open(self.data_inputs_path, "wb"))
+        with open(self.data_inputs_path, "wb") as f:
+            dill.dump((input_names, explored_inputs), f)
 
     def load_explored_inputs(self):
         if os.path.exists(self.data_inputs_path):
             try:
                 # dill to pickle objects created on the fly
-                return dill.load(open(self.data_inputs_path, "rb"))
+                with open(self.data_inputs_path, "rb") as f:
+                    return dill.load(f)
             except EOFError:
                 warnings.warn("Warning: some problem with explored INPUTS file, probably not correctly saved.")
         return PROBLEM_LOADING_EXPLORED_INPUTS
