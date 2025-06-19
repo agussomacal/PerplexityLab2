@@ -18,8 +18,9 @@ from perplexitylab.miscellaneous import filter_dict, filter_for_func, plx_partia
 @contextmanager
 def savefigure(path2plot, format="png", dpi=None):
     Path(path2plot).parent.mkdir(parents=True, exist_ok=True)
-    yield
-    plt.savefig(path2plot if "." in path2plot else path2plot + "." + format, dpi=dpi)
+    filename = path2plot if "." in path2plot.split("/")[-1] else path2plot + "." + format
+    yield filename
+    plt.savefig(filename, dpi=dpi)
     plt.close()
 
 
@@ -83,12 +84,12 @@ def plottify(variables_assumed_unique=()):
                 for k in variables_assumed_unique:
                     results4plot[k] = em.constants[k] if k in em.constants else results4plot[k].pop()
                 path2figure = f"{path if path is not None else em.path}/{folder}/{filename}_{i}"
-                with savefigure(path2figure):
+                with savefigure(path2figure) as new_filename:
                     with contextmanager(style_function)(**args4style) as (fig, ax):
                         ax.set_title("\n".join([f"{k}: {v}" for k, v in plot_by_vars.items()]))
                         plot_func(fig, ax, **kwargs, **results4plot)
-                if verbose: print("Figure saved in:", path2figure)
-                paths.append(path2figure)
+                    paths.append(new_filename)
+                if verbose: print("Figure saved in:", new_filename)
             return paths
 
         return wrapper
@@ -99,43 +100,85 @@ def plottify(variables_assumed_unique=()):
 # ================================================ #
 #                   Premade plots                  #
 # ================================================ #
-def unfold(x_var, y_var, label_var):
-    unfolded_x = []
-    unfolded_y = []
-    unfolded_label = []
-    for x, y, label in zip(x_var, y_var, label_var):
-        are_iterables = list(map(lambda d: isinstance(d, Iterable) and not isinstance(d, str), (x, y, label)))
-        if any(are_iterables):
+def unfold(x_var, y_var, *args):
+    unfolded_vars = [[], []] + [[] for _ in range(len(args))]
+    for line in zip(*((x_var, y_var,) + args)):
+        assert False, "Problem not solved."
+        # TODO: problem here
+        are_iterables = list(map(lambda d: isinstance(d, Iterable) and not isinstance(d, str), line[:3]))
+        if all(are_iterables):
+            for i, e in enumerate(line): unfolded_vars[i].append(e)
+        else:
+            x, y = line[:2]
+            other_vars = [[] for _ in range(len(args))]
             if not all(are_iterables):
                 assert are_iterables[0] == are_iterables[1] == True, "x and y should be both iterables"
                 assert len(x) == len(y), "x and y should have the same length"
-                label = [label] * len(x)
-            assert len(set(map(len, (x, y, label)))) == 1, "x, y and labels must have the same length"
-            unfolded_x += list(x)
-            unfolded_y += list(y)
-            unfolded_label += list(label)
-        else:
-            unfolded_x.append(x)
-            unfolded_y.append(y)
-            unfolded_label.append(label)
-    return unfolded_x, unfolded_y, unfolded_label
+                for i, v in enumerate(line[2:]): other_vars[i] = [v] * len(x)
+            assert len(set(map(len, (x, y) + tuple(
+                other_vars)))) == 1, "x, y and the rest of the variables must have the same length"
+            for i, e in enumerate((x, y) + tuple(other_vars)): unfolded_vars[i] += list(e)
+
+    return unfolded_vars
+
+
+style_properties = ["colors", "sizes", "style", "markers"]
 
 
 def plx_generic_plot(x_var: str, y_var: str, label_var: str, plotting_function: Callable, reduce: Callable = None,
                      **kwargs):
     @plottify()
     @with_signature(
-        f"generic_plot(fig, ax, {x_var}, {y_var}, {label_var}, colors=None, sizes=None, dashes=None, markers=None)")
+        f"generic_plot(fig, ax, {x_var}, {y_var}, {label_var}, {', '.join([f'{pn}=None' for pn in style_properties])})")
     def generic_plot(fig, ax, **vars2plot):
-        x, y, label = unfold(vars2plot[x_var], vars2plot[y_var], vars2plot[label_var])
-        data = pd.DataFrame.from_dict({x_var: x, y_var: y, label_var: label})
+
+        # Transform style variables from dict to list
+        for property_name in set(style_properties).intersection(vars2plot):
+            property = vars2plot[property_name]
+            if property is None:
+                vars2plot.pop(property_name)
+            else:
+                if isinstance(property, dict):
+                    if len(set(vars2plot[label_var]).difference(property.keys())) == 0:
+                        vars2plot[property_name] = [vars2plot[property_name][k] for k in vars2plot[label_var]]
+                    else:
+                        raise AssertionError(
+                            f"{property_name} should have keys {set(vars2plot[label_var])} but has only {property.keys()}")
+
+        # Prepare data for plot
+        vars2plot = filter_dict(vars2plot, keys=[x_var, y_var, label_var] + style_properties)
+        data_values = unfold(*vars2plot.values())
+        data = pd.DataFrame(dict(zip(vars2plot, data_values)))
+        # x, y, label = unfold(vars2plot[x_var], vars2plot[y_var], vars2plot[label_var])
+        # data = pd.DataFrame.from_dict({x_var: x, y_var: y, label_var: label})
+
+        # # Add style variables
+        # for property_name in style_properties:
+        #     property = vars2plot[property_name]
+        #     if property is not None:
+        #         if isinstance(property, list):
+        #             if len(property) == len(label):
+        #                 data[property_name] = vars2plot[property_name]
+        #             else:
+        #                 raise ValueError(
+        #                     f"property {property_name} has {len(property)} elements and should have {len(label)} elements.")
+        #         elif isinstance(property, dict):
+        #             if len(set(vars2plot[label_var]).difference(property.keys())) == 0:
+        #                 data[property_name] = [vars2plot[property_name][k] for k in data[label_var]]
+        #             else:
+        #                 raise AssertionError(
+        #                     f"{property_name} should have keys {set(vars2plot[label_var])} but has only {property.keys()}")
+
+        # Apply reduce over y_var variable
         if reduce is not None:
-            data = data.groupby([x_var, label_var]).apply(reduce)
+            data = data.groupby(data.columns[~data.columns.isin([y_var])].to_list()).apply(reduce)
             data.name = y_var
             data = data.reset_index()
-        #TODO: dashes etc not working as expected.
-        plotting_function(data=data, ax=ax, x=x_var, y=y_var, hue=label_var, palette=vars2plot["colors"],
-                          sizes=vars2plot["sizes"], dashes=vars2plot["dashes"], markers=vars2plot["markers"])
+
+        # TODO: dashes etc not working as expected.
+        style_properties_dict = data.rename(columns={"colors": "palette"}).loc[:,
+                                data.columns.isin(style_properties)].to_dict(orient='list')
+        plotting_function(data=data, ax=ax, x=x_var, y=y_var, hue=label_var, **style_properties_dict)
         ax.set(xlabel=x_var, ylabel=y_var)
 
     return generic_plot(**kwargs)

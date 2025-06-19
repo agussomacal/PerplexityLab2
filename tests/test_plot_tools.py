@@ -30,7 +30,7 @@ class TestPipelines(unittest.TestCase):
             pd.DataFrame({"a": a, "x": x, "out1": out1}).groupby("a").plot(x="x", y="out1", ax=ax)
 
         path2plot = plot(
-            em=self.em, filename="test_plot.png",
+            em=self.em, filename="test_plot",
             experiment_setup=experimental_setup(variables(x=np.linspace(-1, 1, 10).tolist(), a=[10, 20])),
         )
         assert all(map(os.path.exists, path2plot))
@@ -40,7 +40,7 @@ class TestPipelines(unittest.TestCase):
             (np.array(out1) - np.array(x)) * a
 
         path2plot = plot(
-            em=self.em, filename="test_plot.png",
+            em=self.em, filename="test_plot",
             experiment_setup=experimental_setup(variables(x=np.linspace(-1, 1, 10).tolist()), a=1),
             style_function=plx_generic_plot_styler(xlabel="XLABEL")
         )
@@ -48,7 +48,7 @@ class TestPipelines(unittest.TestCase):
 
     def test_plx_lineplot(self):
         plx_lineplot(
-            em=self.em, filename="test_plot.png",
+            em=self.em, filename="test_plot",
             x_var="x", y_var="a", label_var="b",
             experiment_setup=experimental_setup(variables(x=np.linspace(-1, 1, 10).tolist(), a=[1, 2])),
             style_function=plx_generic_plot_styler(xlabel="XLABEL", log="x")
@@ -56,9 +56,31 @@ class TestPipelines(unittest.TestCase):
 
     def test_plx_lineplot_unfold(self):
         plx_lineplot(
-            em=self.em, filename="test_plot.png",
+            em=self.em, filename="test_plot",
             x_var="out3", y_var="out2", label_var="b",
             experiment_setup=experimental_setup(variables(x=np.linspace(-1, 1, 10).tolist(), a=[1, 2])),
+            style_function=plx_generic_plot_styler(xlabel="XLABEL", log="x"),
+        )
+        
+    def test_plx_lineplot_reduce(self):
+        plx_lineplot(
+            em=self.em, filename="test_plot",
+            x_var="out3", y_var="out2", label_var="b", reduce=np.mean,
+            experiment_setup=experimental_setup(variables(x=np.linspace(-1, 1, 10).tolist(), a=[1, 2])),
+            style_function=plx_generic_plot_styler(xlabel="XLABEL", log="x"),
+        )
+
+    def test_style_variables(self):
+        a = [1, 2]
+        colors={1: "red", 2: "blue"}
+        sizes={1: 10, 2: 2}
+        style={1:1, 2:2}
+        markers={1: "*", 2: "."}
+        plx_lineplot(
+            em=self.em, filename="test_plot",
+            x_var="out3", y_var="out2", label_var="a",
+            colors=colors, sizes=sizes, style=style, markers=markers,
+            experiment_setup=experimental_setup(variables(x=np.linspace(-1, 1, 10).tolist(), a=a)),
             style_function=plx_generic_plot_styler(xlabel="XLABEL", log="x"),
         )
 
