@@ -1,4 +1,5 @@
 import inspect
+from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Iterable, Tuple, Dict, Any, List, Union
@@ -100,29 +101,30 @@ def plottify(variables_assumed_unique=()):
 # ================================================ #
 #                   Premade plots                  #
 # ================================================ #
-def unfold(x_var, y_var, *args):
-    unfolded_vars = [[], []] + [[] for _ in range(len(args))]
-    for line in zip(*((x_var, y_var,) + args)):
-        assert False, "Problem not solved."
-        # TODO: problem here
+def unfold(x_var, y_var, label_var, *args):
+    unfolded_vars = [[], [], []] + [[] for _ in range(len(args))]
+    for line in zip(*((x_var, y_var, label_var) + args)):
         are_iterables = list(map(lambda d: isinstance(d, Iterable) and not isinstance(d, str), line[:3]))
-        if all(are_iterables):
+        # assumes ergs are not iterables (at least not as in x, y, label)
+        if not any(are_iterables):  # none is iterable from x, y, label
             for i, e in enumerate(line): unfolded_vars[i].append(e)
+        elif any(are_iterables[:2]):
+            x, y, label = line[:3]
+            if not are_iterables[0]: x = [x] * len(y)  # if it is not iterable then y is
+            if not are_iterables[1]: y = [y] * len(x)  # vice-versa
+            if not are_iterables[2]: label = [label] * len(x)  # x has alredy been updated to the right length
+            other_vars = [[v] * len(x) for v in line[3:]]
+            for i, e in enumerate((x, y, label) + tuple(other_vars)): unfolded_vars[i] += list(e)
         else:
-            x, y = line[:2]
-            other_vars = [[] for _ in range(len(args))]
-            if not all(are_iterables):
-                assert are_iterables[0] == are_iterables[1] == True, "x and y should be both iterables"
-                assert len(x) == len(y), "x and y should have the same length"
-                for i, v in enumerate(line[2:]): other_vars[i] = [v] * len(x)
-            assert len(set(map(len, (x, y) + tuple(
-                other_vars)))) == 1, "x, y and the rest of the variables must have the same length"
-            for i, e in enumerate((x, y) + tuple(other_vars)): unfolded_vars[i] += list(e)
+            raise Exception(
+                f"Combination of iterable-not iterble is not supported, maybe labels are iterables and not x and y?")
 
     return unfolded_vars
 
 
-style_properties = ["colors", "sizes", "style", "markers"]
+style_properties_to_dict = ["colors", "sizes", "markers"]
+style_properties_to_list = ["style"]
+style_properties = style_properties_to_dict + style_properties_to_list
 
 
 def plx_generic_plot(x_var: str, y_var: str, label_var: str, plotting_function: Callable, reduce: Callable = None,
@@ -149,25 +151,6 @@ def plx_generic_plot(x_var: str, y_var: str, label_var: str, plotting_function: 
         vars2plot = filter_dict(vars2plot, keys=[x_var, y_var, label_var] + style_properties)
         data_values = unfold(*vars2plot.values())
         data = pd.DataFrame(dict(zip(vars2plot, data_values)))
-        # x, y, label = unfold(vars2plot[x_var], vars2plot[y_var], vars2plot[label_var])
-        # data = pd.DataFrame.from_dict({x_var: x, y_var: y, label_var: label})
-
-        # # Add style variables
-        # for property_name in style_properties:
-        #     property = vars2plot[property_name]
-        #     if property is not None:
-        #         if isinstance(property, list):
-        #             if len(property) == len(label):
-        #                 data[property_name] = vars2plot[property_name]
-        #             else:
-        #                 raise ValueError(
-        #                     f"property {property_name} has {len(property)} elements and should have {len(label)} elements.")
-        #         elif isinstance(property, dict):
-        #             if len(set(vars2plot[label_var]).difference(property.keys())) == 0:
-        #                 data[property_name] = [vars2plot[property_name][k] for k in data[label_var]]
-        #             else:
-        #                 raise AssertionError(
-        #                     f"{property_name} should have keys {set(vars2plot[label_var])} but has only {property.keys()}")
 
         # Apply reduce over y_var variable
         if reduce is not None:
@@ -175,9 +158,17 @@ def plx_generic_plot(x_var: str, y_var: str, label_var: str, plotting_function: 
             data.name = y_var
             data = data.reset_index()
 
-        # TODO: dashes etc not working as expected.
-        style_properties_dict = data.rename(columns={"colors": "palette"}).loc[:,
-                                data.columns.isin(style_properties)].to_dict(orient='list')
+        style_properties_dict = {property_name: (list() if property_name in style_properties_to_list else dict()) for
+                                 property_name in style_properties if property_name in data.columns}
+        for label, (_, row) in zip(data[label_var], data.loc[:, data.columns.isin(style_properties)].iterrows()):
+            for property_name, property_value in row.items():
+                if property_name in style_properties_to_list:
+                    style_properties_dict[property_name].append(property_value)
+                else:
+                    style_properties_dict[property_name][label] = property_value
+        if "colors" in style_properties_dict:
+            style_properties_dict["palette"] = style_properties_dict.pop("colors")
+
         plotting_function(data=data, ax=ax, x=x_var, y=y_var, hue=label_var, **style_properties_dict)
         ax.set(xlabel=x_var, ylabel=y_var)
 
