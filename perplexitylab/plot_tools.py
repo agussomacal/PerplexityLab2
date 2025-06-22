@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Iterable, Tuple, Dict, Any, List, Union
 
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from makefun import with_signature
@@ -104,7 +105,14 @@ def plottify(variables_assumed_unique=()):
 def unfold(x_var, y_var, label_var, *args):
     unfolded_vars = [[], [], []] + [[] for _ in range(len(args))]
     for line in zip(*((x_var, y_var, label_var) + args)):
-        are_iterables = list(map(lambda d: isinstance(d, Iterable) and not isinstance(d, str), line[:3]))
+        def is_iterable(d):
+            if isinstance(d, Iterable) and not isinstance(d, str):
+                if hasattr(d, "size"):
+                    if d.size > 1: return True
+                elif len(d) > 1: return True
+            return False
+
+        are_iterables = list(map(is_iterable, line[:3]))
         # assumes ergs are not iterables (at least not as in x, y, label)
         if not any(are_iterables):  # none is iterable from x, y, label
             for i, e in enumerate(line): unfolded_vars[i].append(e)
