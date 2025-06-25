@@ -3,6 +3,7 @@ import shutil
 import time
 import unittest
 from pathlib import Path
+from time import sleep
 
 import numpy as np
 import pandas as pd
@@ -63,6 +64,36 @@ class TestPipelines(unittest.TestCase):
 
         assert len(results) == 2
         assert set(map(len, results.values())) == {6}
+
+    def test_pipeline_required_variables(self):
+        sleep_time = 0.001
+        n = 5
+
+        em = ExperimentManager(name="Experiment", path=self.path, save_results=False)
+        em.set_pipeline(
+            Task(lambda a, x: {"out1": time.sleep(sleep_time)}, task_name="function1"),
+            Task(lambda x, y: {"out2": time.sleep(sleep_time)}, task_name="function2"),
+        )
+        em.set_defaults(a=2)
+
+        t0 = time.time()
+        em.run_pipeline(
+            x=list(range(n)),
+            y=list(range(n)),
+            required_variables=["out1"],
+        )
+        t_short = time.time() - t0
+
+        t0 = time.time()
+        em.run_pipeline(
+            x=list(range(n)),
+            y=list(range(n)),
+            required_variables=["out1", "out2"],
+        )
+        t_full = time.time() - t0
+
+        assert t_short < t_full
+        assert t_full >= sleep_time * n ** 2
 
     def test_run_experiments(self):
         em = ExperimentManager(name="Experiment", path=self.path, save_results=False)

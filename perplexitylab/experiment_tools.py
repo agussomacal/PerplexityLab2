@@ -66,8 +66,7 @@ class ExperimentManager:
     def __init__(self, name, path, save_results=True, verbose=True, num_cpus=1, recalculate=False):
         self.name = name
         self.path = Path(path).joinpath(name)
-        self.path.mkdir(parents=True, exist_ok=True)
-        self.data_path = Path(path).joinpath(f".data_{name}")
+        self.data_path = Path(self.path).joinpath(f".data_{name}")
         self.data_path.mkdir(parents=True, exist_ok=True)
         self.save_results = save_results
         self.verbose = verbose
@@ -101,7 +100,7 @@ class ExperimentManager:
         return new_experiment_manager
 
     def run_experiments(self, experiment_setup: Union[
-        Tuple[Dict[str, Any], Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]]],
+        Tuple[Dict[str, Any], Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]]] = ({}, {}),
                         common_experiment_setup: Tuple[Dict[str, Any], Dict[str, Any]] = ({}, {}),
                         required_variables=None) -> Dict[str, Any]:
         experiment_setup = (experiment_setup if isinstance(experiment_setup, list) else [experiment_setup])
@@ -127,15 +126,14 @@ class ExperimentManager:
         variables.update(**kwargs)
         pmap = get_map_function(self.num_cpus)
         for i, results in enumerate(
-                pmap(lambda val: list(self.run_tasks(dict(zip(variables, val)), input_hash=make_hash(val))),
+                pmap(lambda val: list(
+                    self.run_tasks(dict(zip(variables, val)), input_hash=make_hash(val),
+                                   required_variables=required_variables)),
                      itertools.product(*variables.values()))):
             for singe_result in results:
                 new_inputs = [singe_result[k] for k in variables.keys()]
                 if self.verbose: print("_____________________")
                 if self.verbose: print("(", i, ") Variables:", dict(zip(variables, new_inputs)))
-                # for k, v in singe_result.items():
-                #     if required_variables is not None and k not in required_variables: continue
-                #     result_dict[k].append(v)
                 result_dict.append(
                     singe_result if required_variables is None else {k: singe_result[k] for k in singe_result if
                                                                      k in required_variables})
@@ -147,9 +145,11 @@ class ExperimentManager:
         self.save_explored_inputs(input_names=tuple(list(variables.keys())), explored_inputs=explored_inputs)
         return result_dict.todict()
 
-    def run_tasks(self, inputs: Dict, input_hash, order=0):
+    def run_tasks(self, inputs: Dict, input_hash, order=0, required_variables=None):
         # TODO: h, the input_hash creates an output for al the graph even if some inputs are not used for an intermediate function
-        if order >= len(self.tasks):
+        if (order >= len(self.tasks) or  # reached the las task
+                (required_variables is not None and len(set(required_variables).difference(
+                    inputs.keys())) == 0)):  # has all the variables needed for analysis
             yield inputs
         else:
             inputs_for_task = filter_dict(inputs, self.tasks[order].required_inputs)
@@ -172,7 +172,8 @@ class ExperimentManager:
             inputs.update(single_value_variables)
             for new_variable_values in itertools.product(*multiple_value_variables.values()):
                 new_inputs = {**inputs, **dict(zip(multiple_value_variables, new_variable_values))}
-                for single_result in self.run_tasks(new_inputs, input_hash=input_hash, order=order + 1):
+                for single_result in self.run_tasks(new_inputs, input_hash=input_hash, order=order + 1,
+                                                    required_variables=required_variables):
                     yield single_result
 
     def get_stored_result_filepath(self, task_name, task, inputs_for_task, h):

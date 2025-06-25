@@ -64,17 +64,18 @@ def plottify(variables_assumed_unique=()):
         def wrapper(
                 em: ExperimentManager, filename: str,
                 experiment_setup: Union[
-                    Tuple[Dict[str, Any], Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]]],
+                    Tuple[Dict[str, Any], Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]]] = ({}, {}),
                 common_experiment_setup: Tuple[Dict[str, Any], Dict[str, Any]] = ({}, {}),
-                folder="", path=None, verbose=True, plot_by=(),
+                folder="", path=None, verbose=True, plot_by:Union[Tuple[str], str]=(),
                 style_function=plx_generic_plot_styler(), **kwargs):
+            plot_by = list((plot_by,) if isinstance(plot_by, str) else plot_by)
             args4style = filter_for_func(style_function, kwargs)
             plot_func_variables = inspect.getfullargspec(plot_func).args
             assert "fig" in plot_func_variables, f"the input variable 'fig' should be in {plot_func.__name__} even if is unused."
             assert "ax" in plot_func_variables, f"the input variable 'ax' should be in {plot_func.__name__} even if is unused."
             # required_variables = set(plot_func_variables).intersection(variables)
             results = em.run_experiments(experiment_setup=experiment_setup,
-                                         required_variables=plot_func_variables + list(plot_by),
+                                         required_variables=plot_func_variables + plot_by,
                                          common_experiment_setup=common_experiment_setup)
 
             paths = []
