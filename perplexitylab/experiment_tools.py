@@ -108,10 +108,11 @@ class ExperimentManager:
         common_variables, common_constants = common_experiment_setup
         self.set_defaults(**common_constants)
         for individual_variables, individual_constants in experiment_setup:
-            self.set_defaults(**individual_constants)
+            self_copy = copy.deepcopy(self)
+            self_copy.set_defaults(**individual_constants)
             new_variables = common_variables.copy()
             new_variables.update(individual_variables)
-            results.update(self.run_pipeline(required_variables, **new_variables))
+            results.update(self_copy.run_pipeline(required_variables, **new_variables))
         return results.todict()
 
     def run_pipeline(self, required_variables: List[str] = None, **kwargs: List):
