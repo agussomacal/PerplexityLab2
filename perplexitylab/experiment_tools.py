@@ -121,7 +121,7 @@ class ExperimentManager:
             (f"Variables should be one of: {'\n\t'.join(self.experiment_parameters)}\n"
              f"but found [{set(kwargs.keys()).difference(self.experiment_parameters)}] not in parameters, maybe a misspelling error?")
 
-        _, explored_inputs = self.load_explored_inputs()
+        # _, explored_inputs = self.load_explored_inputs()
         result_dict = DictList()
         variables = {k: [v] for k, v in self.constants.items()}
         variables.update(**kwargs)
@@ -139,11 +139,11 @@ class ExperimentManager:
                     singe_result if required_variables is None else {k: singe_result[k] for k in singe_result if
                                                                      k in required_variables})
 
-                for saved_inputs in explored_inputs:
-                    if all([v1 == v2 for v1, v2 in zip(new_inputs, saved_inputs)]): break
-                else:
-                    explored_inputs.append(new_inputs)
-        self.save_explored_inputs(input_names=tuple(list(variables.keys())), explored_inputs=explored_inputs)
+        #         for saved_inputs in explored_inputs:
+        #             if all([v1 == v2 for v1, v2 in zip(new_inputs, saved_inputs)]): break
+        #         else:
+        #             explored_inputs.append(new_inputs)
+        # self.save_explored_inputs(input_names=tuple(list(variables.keys())), explored_inputs=explored_inputs)
         return result_dict.todict()
 
     def run_tasks(self, inputs: Dict, input_hash, order=0, required_variables=None):
