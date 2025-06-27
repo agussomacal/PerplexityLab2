@@ -49,7 +49,7 @@ def plx_generic_plot_styler(figsize=(8, 6), log="",
         if xticks is not None: ax.set_xticks(xticks, xticks)
         if yticks is not None: ax.set_yticks(yticks, yticks)
         if xticks_labels is not None: ax.set_xticklabels(xticks_labels)
-        if yticks_labels is not None: ax.set_xticklabels(yticks_labels)
+        if yticks_labels is not None: ax.set_yticklabels(yticks_labels)
         if legend_fontsize is not None or legend_loc is not None or bbox_to_anchor is not None:
             ax.legend(fontsize=legend_fontsize,
                       bbox_to_anchor=bbox_to_anchor,
