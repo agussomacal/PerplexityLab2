@@ -29,15 +29,16 @@ def savefigure(path2plot, format="png", dpi=None):
 # ================================================ #
 #          Connect plot with experiment            #
 # ================================================ #
-def plx_generic_plot_styler(figsize=(8, 6), log="",
+def plx_generic_plot_styler(figsize=(8, 6), log="", title=None,
                             xlabel=None, xlabel_fontsize=None, xticks=None, xticks_labels=None, xlim=None,
                             ylabel=None, ylabel_fontsize=None, yticks=None, yticks_labels=None, ylim=None,
-                            legend_fontsize=None, legend_loc=None, bbox_to_anchor=None):
+                            legend_fontsize=None, legend_loc=None, bbox_to_anchor=None, no_legend=False):
     def styler_function():
         fig, ax = plt.subplots(figsize=figsize)
 
         yield fig, ax
 
+        if title is not None: ax.set_title(title)
         if xlabel is not None: ax.set_xlabel(xlabel)
         if xlabel_fontsize is not None: ax.set_xlabel(ax.get_xlabel(), fontsize=xlabel_fontsize)
         if ylabel is not None: ax.set_ylabel(ylabel)
@@ -54,6 +55,9 @@ def plx_generic_plot_styler(figsize=(8, 6), log="",
             ax.legend(fontsize=legend_fontsize,
                       bbox_to_anchor=bbox_to_anchor,
                       loc=legend_loc)
+        if no_legend:
+            legend = ax.legend()
+            legend.remove()
         fig.tight_layout()
 
     return styler_function
@@ -66,7 +70,7 @@ def plottify(variables_assumed_unique=()):
                 experiment_setup: Union[
                     Tuple[Dict[str, Any], Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]]] = ({}, {}),
                 common_experiment_setup: Tuple[Dict[str, Any], Dict[str, Any]] = ({}, {}),
-                folder="", path=None, verbose=True, plot_by:Union[Tuple[str], str]=(),
+                folder="", path=None, verbose=True, plot_by:Union[Tuple[str], str]=(), format="png",
                 style_function=plx_generic_plot_styler(), **kwargs):
             plot_by = list((plot_by,) if isinstance(plot_by, str) else plot_by)
             args4style = filter_for_func(style_function, kwargs)
@@ -87,7 +91,7 @@ def plottify(variables_assumed_unique=()):
                 for k in variables_assumed_unique:
                     results4plot[k] = em.constants[k] if k in em.constants else results4plot[k].pop()
                 path2figure = f"{path if path is not None else em.path}/{folder}/{filename}_{i}"
-                with savefigure(path2figure) as new_filename:
+                with savefigure(path2figure, format) as new_filename:
                     with contextmanager(style_function)(**args4style) as (fig, ax):
                         ax.set_title("\n".join([f"{k}: {v}" for k, v in plot_by_vars.items()]))
                         plot_func(fig, ax, **kwargs, **results4plot)

@@ -80,14 +80,17 @@ class ExperimentManager:
         self.constants = OrderedDict()
 
     def set_defaults(self, **constants):
+        assert len(self.tasks) > 0, "Zero tasks defined, consider running 'set_pipeline' before 'set_defaults'."
         params_in_common = self.experiment_parameters.intersection(constants.keys())
         assert params_in_common == set(constants.keys()), \
             (f"Constants should be one of:\n{'\n\t'.join(self.experiment_parameters)}\n"
              f"but found [{set(constants.keys()).difference(self.experiment_parameters)}] not in parameters, maybe a misspelling error?")
         self.constants.update(**constants)
+        return self
 
     def set_pipeline(self, *tasks: Task):
         self.tasks = tasks
+        return self
 
     @property
     def experiment_parameters(self):
