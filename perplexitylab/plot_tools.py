@@ -20,7 +20,7 @@ from perplexitylab.miscellaneous import filter_dict, filter_for_func, plx_partia
 @contextmanager
 def savefigure(path2plot, format="png", dpi=None):
     Path(path2plot).parent.mkdir(parents=True, exist_ok=True)
-    filename = path2plot if "." in path2plot.split("/")[-1] else path2plot + "." + format
+    filename = path2plot if "." in str(path2plot).split("/")[-1] else str(path2plot) + "." + format
     yield filename
     plt.savefig(filename, dpi=dpi)
     plt.close()
