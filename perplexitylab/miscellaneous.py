@@ -112,9 +112,9 @@ def set_latex_fonts(font_family="amssymb", packages=("amsmath",)):
 
 
 # ----------- func utils -----------
-def plx_partial(function: Callable, *args, **kwargs) -> Callable:
+def plx_partial(function: Callable, suffix="", *args, **kwargs) -> Callable:
     partial_function = functools.partial(function, *args, **kwargs)
-    partial_function.__name__ = "plx_partial_" + function.__name__
+    partial_function.__name__ = "plx_partial_" + function.__name__ + suffix
     # partial_function.__module__ = "plx_partial_" + function.__module__
     return partial_function
 
