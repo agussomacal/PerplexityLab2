@@ -112,9 +112,11 @@ def set_latex_fonts(font_family="amssymb", packages=("amsmath",)):
 
 
 # ----------- func utils -----------
-def plx_partial(function: Callable, prefix="plx_partial_", suffix="", *args, **kwargs) -> Callable:
+def plx_partial(function: Callable, prefix="plx_partial_", suffix="", function_rename=None,
+                use_kwargs_for_as_suffix=False, *args, **kwargs) -> Callable:
     partial_function = functools.partial(function, *args, **kwargs)
-    partial_function.__name__ = prefix + function.__name__ + suffix
+    if use_kwargs_for_as_suffix: suffix += " " + " ".join([f"{k}: {v}" for k, v in kwargs.items()])
+    partial_function.__name__ = prefix + (function.__name__ if function_rename is None else function_rename) + suffix
     # partial_function.__module__ = "plx_partial_" + function.__module__
     return partial_function
 

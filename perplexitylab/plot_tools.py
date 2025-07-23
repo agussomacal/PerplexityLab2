@@ -1,4 +1,5 @@
 import inspect
+from asyncio import tasks
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -11,7 +12,7 @@ from makefun import with_signature
 from matplotlib import pyplot as plt
 
 from perplexitylab.experiment_tools import ExperimentManager
-from perplexitylab.miscellaneous import filter_dict, filter_for_func, plx_partial, group
+from perplexitylab.miscellaneous import filter_dict, filter_for_func, plx_partial, group, if_exist_load_else_do
 
 
 # ================================================ #
@@ -70,17 +71,28 @@ def plottify(variables_assumed_unique=()):
                 experiment_setup: Union[
                     Tuple[Dict[str, Any], Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]]] = ({}, {}),
                 common_experiment_setup: Tuple[Dict[str, Any], Dict[str, Any]] = ({}, {}),
-                folder="", path=None, verbose=True, plot_by:Union[Tuple[str], str]=(), format="png",
+                folder="", path=None, verbose=True, plot_by: Union[Tuple[str], str] = (), format="png",
+                recalculate_plot=False,
                 style_function=plx_generic_plot_styler(), **kwargs):
             plot_by = list((plot_by,) if isinstance(plot_by, str) else plot_by)
             args4style = filter_for_func(style_function, kwargs)
             plot_func_variables = inspect.getfullargspec(plot_func).args
             assert "fig" in plot_func_variables, f"the input variable 'fig' should be in {plot_func.__name__} even if is unused."
             assert "ax" in plot_func_variables, f"the input variable 'ax' should be in {plot_func.__name__} even if is unused."
+
             # required_variables = set(plot_func_variables).intersection(variables)
-            results = em.run_experiments(experiment_setup=experiment_setup,
-                                         required_variables=plot_func_variables + plot_by,
-                                         common_experiment_setup=common_experiment_setup)
+            @if_exist_load_else_do(file_format="joblib", loader=None, saver=None, description=None, check_hash=True)
+            def run_experiments(experiment_setup, plot_func_variables, plot_by, common_experiment_setup, tasks):
+                return em.run_experiments(experiment_setup=experiment_setup,
+                                          required_variables=plot_func_variables + plot_by,
+                                          common_experiment_setup=common_experiment_setup)
+
+            path2folder = f"{path if path is not None else em.path}/{folder}/"
+            results = run_experiments(experiment_setup=experiment_setup, plot_func_variables=plot_func_variables,
+                                      plot_by=plot_by, common_experiment_setup=common_experiment_setup,
+                                      tasks=em.tasks,
+                                      recalculate=recalculate_plot, filename=".plotdata_for_" + filename,
+                                      path=path2folder)
 
             paths = []
             for i, (results4plot, plot_by_vars) in enumerate(group(results, *plot_by)):
@@ -90,7 +102,7 @@ def plottify(variables_assumed_unique=()):
                                      keys_not=list(results4plot.keys()))  # get params for plot (not already in results)
                 for k in variables_assumed_unique:
                     results4plot[k] = em.constants[k] if k in em.constants else results4plot[k].pop()
-                path2figure = f"{path if path is not None else em.path}/{folder}/{filename}_{i}"
+                path2figure = f"{path2folder}/{filename}{'__'+'_'.join(tuple(plot_by_vars.items())) if len(plot_by)>0 else ''}"
                 with savefigure(path2figure, format) as new_filename:
                     with contextmanager(style_function)(**args4style) as (fig, ax):
                         ax.set_title("\n".join([f"{k}: {v}" for k, v in plot_by_vars.items()]))
@@ -114,7 +126,8 @@ def unfold(x_var, y_var, label_var, *args):
             if isinstance(d, Iterable) and not isinstance(d, str):
                 if hasattr(d, "size"):
                     if d.size > 1: return True
-                elif len(d) > 1: return True
+                elif len(d) > 1:
+                    return True
             return False
 
         are_iterables = list(map(is_iterable, line[:3]))
