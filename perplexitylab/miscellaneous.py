@@ -273,7 +273,7 @@ def if_exist_load_else_do(file_format="joblib", loader=None, saver=None, descrip
                 not_same_hash = True
 
             # process save or load
-            if not save or recalculate or not os.path.exists(filepath) or (check_hash and not_same_hash):
+            if recalculate or not os.path.exists(filepath) or (check_hash and not_same_hash):
                 # Processing
                 with timeit(f"Processing {filepath}:", verbose=verbose):
                     data = do_func(*args, **kwargs)

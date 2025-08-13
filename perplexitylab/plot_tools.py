@@ -72,7 +72,7 @@ def plottify(variables_assumed_unique=()):
                     Tuple[Dict[str, Any], Dict[str, Any]], List[Tuple[Dict[str, Any], Dict[str, Any]]]] = ({}, {}),
                 common_experiment_setup: Tuple[Dict[str, Any], Dict[str, Any]] = ({}, {}),
                 folder="", path=None, verbose=True, plot_by: Union[Tuple[str], str] = (), format="png",
-                recalculate_plot=False,
+                recalculate_plot=True, save_preprocess=False,
                 style_function=plx_generic_plot_styler(), **kwargs):
             plot_by = list((plot_by,) if isinstance(plot_by, str) else plot_by)
             args4style = filter_for_func(style_function, kwargs)
@@ -82,7 +82,7 @@ def plottify(variables_assumed_unique=()):
 
             # required_variables = set(plot_func_variables).intersection(variables)
             @if_exist_load_else_do(file_format="joblib", loader=None, saver=None, description=None, check_hash=True)
-            def run_experiments(experiment_setup, plot_func_variables, plot_by, common_experiment_setup, tasks):
+            def run_experiments(experiment_setup, plot_func_variables, plot_by, common_experiment_setup):
                 return em.run_experiments(experiment_setup=experiment_setup,
                                           required_variables=plot_func_variables + plot_by,
                                           common_experiment_setup=common_experiment_setup)
@@ -90,9 +90,9 @@ def plottify(variables_assumed_unique=()):
             path2folder = f"{path if path is not None else em.path}/{folder}/"
             results = run_experiments(experiment_setup=experiment_setup, plot_func_variables=plot_func_variables,
                                       plot_by=plot_by, common_experiment_setup=common_experiment_setup,
-                                      tasks=em.tasks,
-                                      recalculate=recalculate_plot, filename=".plotdata_for_" + filename,
-                                      path=path2folder)
+                                      recalculate=recalculate_plot or em.recalculate,
+                                      filename=".plotdata_for_" + filename,
+                                      path=path2folder, save=save_preprocess)
 
             paths = []
             for i, (results4plot, plot_by_vars) in enumerate(group(results, *plot_by)):
@@ -102,7 +102,7 @@ def plottify(variables_assumed_unique=()):
                                      keys_not=list(results4plot.keys()))  # get params for plot (not already in results)
                 for k in variables_assumed_unique:
                     results4plot[k] = em.constants[k] if k in em.constants else results4plot[k].pop()
-                path2figure = f"{path2folder}/{filename}{'__'+'_'.join(tuple(plot_by_vars.items())) if len(plot_by)>0 else ''}"
+                path2figure = f"{path2folder}/{filename}{'__'+'-'.join([f'{k}_{v}' for k, v in plot_by_vars.items()]) if len(plot_by)>0 else ''}"
                 with savefigure(path2figure, format) as new_filename:
                     with contextmanager(style_function)(**args4style) as (fig, ax):
                         ax.set_title("\n".join([f"{k}: {v}" for k, v in plot_by_vars.items()]))
