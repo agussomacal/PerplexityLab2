@@ -14,14 +14,19 @@ from matplotlib import pyplot as plt
 from perplexitylab.experiment_tools import ExperimentManager
 from perplexitylab.miscellaneous import filter_dict, filter_for_func, plx_partial, group, if_exist_load_else_do
 
-
 # ================================================ #
 #                    Plot tools                    #
 # ================================================ #
+SUPPORTED_FORMATS = ("eps", "jpeg", "jpg", "pdf", "pgf", "png", "ps", "raw", "rgba", "svg", "svgz", "tif", "tiff",
+                     "webp")
+
+
 @contextmanager
 def savefigure(path2plot, format="png", dpi=None):
     Path(path2plot).parent.mkdir(parents=True, exist_ok=True)
-    filename = path2plot if "." in str(path2plot).split("/")[-1] else str(path2plot) + "." + format
+    # (supported formats: eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff, webp)
+    filename = path2plot
+    if not any([path2plot[-len(f):] == f for f in SUPPORTED_FORMATS]): filename += "." + format
     yield filename
     plt.savefig(filename, dpi=dpi)
     plt.close()
@@ -48,8 +53,12 @@ def plx_generic_plot_styler(figsize=(8, 6), log="", title=None,
         if ylim is not None: ax.set_ylim(ylim)
         if "x" in log: ax.set_xscale("log")
         if "y" in log: ax.set_yscale("log")
-        if xticks is not None: ax.set_xticks(xticks, xticks)
-        if yticks is not None: ax.set_yticks(yticks, yticks)
+        if xticks is not None:
+            ax.set_xticks([])
+            ax.set_xticks(xticks, xticks)
+        if yticks is not None:
+            ax.set_yticks([])
+            ax.set_yticks(yticks, yticks)
         if xticks_labels is not None: ax.set_xticklabels(xticks_labels)
         if yticks_labels is not None: ax.set_yticklabels(yticks_labels)
         if legend_fontsize is not None or legend_loc is not None or bbox_to_anchor is not None:
@@ -102,7 +111,7 @@ def plottify(variables_assumed_unique=()):
                                      keys_not=list(results4plot.keys()))  # get params for plot (not already in results)
                 for k in variables_assumed_unique:
                     results4plot[k] = em.constants[k] if k in em.constants else results4plot[k].pop()
-                path2figure = f"{path2folder}/{filename}{'__'+'-'.join([f'{k}_{v}' for k, v in plot_by_vars.items()]) if len(plot_by)>0 else ''}"
+                path2figure = f"{path2folder}/{filename}{'__' + '-'.join([f'{k}_{v}' for k, v in plot_by_vars.items()]) if len(plot_by) > 0 else ''}"
                 with savefigure(path2figure, format) as new_filename:
                     with contextmanager(style_function)(**args4style) as (fig, ax):
                         ax.set_title("\n".join([f"{k}: {v}" for k, v in plot_by_vars.items()]))
