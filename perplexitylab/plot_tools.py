@@ -2,6 +2,7 @@ import inspect
 from asyncio import tasks
 from collections import defaultdict
 from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from typing import Callable, Iterable, Tuple, Dict, Any, List, Union
 
@@ -211,3 +212,4 @@ def plx_generic_plot(x_var: str, y_var: str, label_var: str, plotting_function: 
 
 
 plx_lineplot = plx_partial(plx_generic_plot, plotting_function=sns.lineplot)
+plx_lineplot_median = plx_partial(plx_generic_plot, plotting_function=partial(sns.lineplot, estimator="median"))
