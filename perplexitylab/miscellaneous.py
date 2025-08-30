@@ -121,8 +121,8 @@ def plx_partial(function: Callable, prefix="plx_partial_", suffix="", function_r
     return partial_function
 
 
-def plx_partial_class(class_type: Type, *args, **kwargs) -> Type:
-    return type("plx_" + class_type.__name__, (class_type,),
+def plx_partial_class(class_type: Type, prefix="plx_", suffix="", *args, **kwargs) -> Type:
+    return type(prefix + class_type.__name__ + suffix, (class_type,),
                 {"__init__": lambda self, *arg2, **kwargs2: plx_partial(class_type.__init__, *args, **kwargs)(self=self,
                                                                                                               *arg2,
                                                                                                               **kwargs2)})
