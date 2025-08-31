@@ -1,6 +1,6 @@
 import inspect
 from asyncio import tasks
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
@@ -36,10 +36,13 @@ def savefigure(path2plot, format="png", dpi=None):
 # ================================================ #
 #          Connect plot with experiment            #
 # ================================================ #
+HVline = namedtuple("HVline", "value name color")
+
 def plx_generic_plot_styler(figsize=(8, 6), log="", title=None,
                             xlabel=None, xlabel_fontsize=None, xticks=None, xticks_labels=None, xlim=None,
                             ylabel=None, ylabel_fontsize=None, yticks=None, yticks_labels=None, ylim=None,
-                            legend_fontsize=None, legend_loc=None, bbox_to_anchor=None, no_legend=False):
+                            legend_fontsize=None, legend_loc=None, bbox_to_anchor=None, no_legend=False,
+                            vline:HVline=None, hline:HVline=None):
     def styler_function():
         fig, ax = plt.subplots(figsize=figsize)
 
@@ -66,6 +69,9 @@ def plx_generic_plot_styler(figsize=(8, 6), log="", title=None,
             ax.legend(fontsize=legend_fontsize,
                       bbox_to_anchor=bbox_to_anchor,
                       loc=legend_loc)
+        if vline is not None: ax.axvline(vline.value, label=vline.name, color=vline.color)
+        if hline is not None: ax.axhline(hline.value, label=hline.name, color=hline.color)
+
         if no_legend:
             legend = ax.legend()
             legend.remove()
