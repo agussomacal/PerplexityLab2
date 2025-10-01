@@ -186,7 +186,8 @@ def make_hash(o):
     elif inspect.isclass(o):
         return make_hash([o.__name__, ])  # TODO: check the right way to hash
     elif isinstance(o, Callable):
-        return make_hash([o.__name__, o.__dict__, ])  # TODO: check the right way to hash/ , o.__code__.co_filename
+        # return make_hash([o.__name__, o.__dict__, ])  # TODO: check the right way to hash/ , o.__code__.co_filename
+        return make_hash([o.__name__, ])  # TODO: check the right way to hash/ , o.__code__.co_filename
     elif isinstance(o, (int, float)):
         return make_hash(str(o))
     else:
