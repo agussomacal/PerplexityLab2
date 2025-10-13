@@ -142,8 +142,10 @@ def check_create_path(path, *args):
 
 
 def clean_str4saving(s):
-    return s.replace("(", "").replace(")", "").replace("[", "").replace("]", "").replace(",", "").replace(
-        ".", "").replace(";", "").replace(":", "").replace(" ", "_")
+    s = s.replace("(", "").replace(")", "").replace("[", "").replace("]", "").replace(",", "").replace(";", "").replace(
+        ":", "").replace(" ", "_")
+    s = s[0] + s[1:].replace(".", "")  # except if it is a hidden file.
+    return s
 
 
 DictProxyType = type(object.__dict__)
