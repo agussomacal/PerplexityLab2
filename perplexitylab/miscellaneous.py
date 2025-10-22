@@ -6,6 +6,7 @@ import os
 import pickle
 import shutil
 import time
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, Dict, Type, Union, Set, List
@@ -298,6 +299,61 @@ def if_exist_load_else_do(file_format="joblib", loader=None, saver=None, descrip
             if isinstance(description, Callable):
                 description(data)
             return data
+
+        return decorated_func
+
+    return decorator
+
+
+
+def check_do_save_or_load_experiment(file_format="joblib", loader=None, saver=None, description=None, vars_filter=None):
+    """
+    Decorator to manage loading and saving of files after a first processing execution.
+    :param file_format: format for the termination of the file. If not known specify loader an saver. known ones are: npy, pickle, joblib
+    :param loader: function that knows how to load the file
+    :param saver: function that knows how to save the file
+    :param description: description of data as a function depending on the type of data.
+    :return:
+    a function with the same aprameters as the decorated plus
+    :path to specify path to folder
+    :filename=None to specify filename
+    :recalculate=False to force recomputation.
+    :check_hash=False to recalculate if inputs to function change with respect of saved data
+    :save=True to save
+    """
+
+    def decorator(do_func):
+        def decorated_func(path, filename=None, recalculate=False, save=True, verbose=True, *args, **kwargs):
+            if path is None:
+                warnings.warn("Missing path: experiments won't be saved.")
+                return do_func(*args, **kwargs)
+            else:
+                path = Path(path)
+                path.mkdir(parents=True, exist_ok=True)
+                hash_of_input = make_hash((args, kwargs) if vars_filter is None else vars_filter(*args, **kwargs))
+                filename = f".{do_func.__name__ if filename is None else filename}_{hash_of_input}"
+                filename = clean_str4saving(filename)
+                filepath = f"{path}/{filename}.{file_format}"
+
+                # process save or load
+                if not save or recalculate or not os.path.exists(filepath):
+                    # Processing
+                    with timeit(f"Processing {filepath}:", verbose=verbose):
+                        data = do_func(*args, **kwargs)
+
+                    # Saving data and hash
+                    if save: ifex_saver(data, filepath=filepath, saver=saver, file_format=file_format)
+                else:
+                    # loading data
+                    try:
+                        data = ifex_loader(filepath=filepath, loader=loader, file_format=file_format)
+                    except EOFError:
+                        raise Exception(f"Problem with the file: {filepath}. Try deleting it to recalculate it.")
+
+                # do post processing
+                if isinstance(description, Callable):
+                    description(data)
+                return data
 
         return decorated_func
 
