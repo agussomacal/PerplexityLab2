@@ -305,7 +305,6 @@ def if_exist_load_else_do(file_format="joblib", loader=None, saver=None, descrip
     return decorator
 
 
-
 def check_do_save_or_load_experiment(file_format="joblib", loader=None, saver=None, description=None, vars_filter=None):
     """
     Decorator to manage loading and saving of files after a first processing execution.
@@ -320,7 +319,12 @@ def check_do_save_or_load_experiment(file_format="joblib", loader=None, saver=No
     :recalculate=False to force recomputation.
     :check_hash=False to recalculate if inputs to function change with respect of saved data
     :save=True to save
+    :vars_filter=None when it is not it should be a function
     """
+
+    assert vars_filter is None or isinstance(vars_filter, Callable), \
+        ("vars_filter should be a function that takes the input vriables of the function and returns a subset or "
+         "transformation that will be used to create the hashh and save the experiment")
 
     def decorator(do_func):
         def decorated_func(path, filename=None, recalculate=False, save=True, verbose=True, *args, **kwargs):
