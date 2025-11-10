@@ -327,14 +327,16 @@ def check_do_save_or_load_experiment(file_format="joblib", loader=None, saver=No
          "transformation that will be used to create the hashh and save the experiment")
 
     def decorator(do_func):
-        def decorated_func(path, filename=None, recalculate=False, save=True, verbose=True, *args, **kwargs):
+        def decorated_func(path, filename=None, experiment_tag="", recalculate=False, save=True, verbose=True, *args,
+                           **kwargs):
             if path is None:
                 warnings.warn("Missing path: experiments won't be saved.")
                 return do_func(*args, **kwargs)
             else:
                 path = Path(path)
                 path.mkdir(parents=True, exist_ok=True)
-                hash_of_input = make_hash((args, kwargs) if vars_filter is None else vars_filter(*args, **kwargs))
+                hash_of_input = make_hash((experiment_tag,) +
+                                          ((args, kwargs) if vars_filter is None else vars_filter(*args, **kwargs)))
                 filename = f".{do_func.__name__ if filename is None else filename}_{hash_of_input}"
                 filename = clean_str4saving(filename)
                 filepath = f"{path}/{filename}.{file_format}"
