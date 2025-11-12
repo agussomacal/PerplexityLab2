@@ -33,16 +33,27 @@ def savefigure(path2plot, format="png", dpi=None):
     plt.close()
 
 
+@contextmanager
+def save_figure(path, filename, figsize=(10, 8), format="png", dpi=None):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    filename = f"{path}/{filename}.{format}"
+    fig, ax = plt.subplots(figsize=figsize)
+    yield fig, ax
+    plt.savefig(filename, dpi=dpi)
+    plt.close()
+
+
 # ================================================ #
 #          Connect plot with experiment            #
 # ================================================ #
 HVline = namedtuple("HVline", "value name color")
 
+
 def plx_generic_plot_styler(figsize=(8, 6), log="", title=None,
                             xlabel=None, xlabel_fontsize=None, xticks=None, xticks_labels=None, xlim=None,
                             ylabel=None, ylabel_fontsize=None, yticks=None, yticks_labels=None, ylim=None,
                             legend_fontsize=None, legend_loc=None, bbox_to_anchor=None, no_legend=False,
-                            vline:HVline=None, hline:HVline=None):
+                            vline: HVline = None, hline: HVline = None):
     def styler_function():
         fig, ax = plt.subplots(figsize=figsize)
 
