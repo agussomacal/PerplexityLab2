@@ -34,12 +34,13 @@ def savefigure(path2plot, format="png", dpi=None):
 
 
 @contextmanager
-def save_figure(path, filename, figsize=(10, 8), format="png", dpi=None):
+def save_figure(path, filename, figsize=(10, 8), format="png", dpi=None, show=False):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     filename = f"{path}/{filename}.{format}"
     fig, ax = plt.subplots(figsize=figsize)
     yield fig, ax
     plt.savefig(filename, dpi=dpi)
+    if show: plt.show()
     plt.close()
 
 
