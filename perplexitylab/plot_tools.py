@@ -40,7 +40,7 @@ def save_figure(path, filename, figsize=(10, 8), format="png", dpi=None, show=Fa
     fig, ax = plt.subplots(figsize=figsize)
     yield fig, ax
     plt.savefig(filename, dpi=dpi)
-    plt.show()
+    if show: plt.show()
     plt.close()
 
 
