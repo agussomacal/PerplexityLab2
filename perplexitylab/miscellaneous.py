@@ -202,8 +202,8 @@ def make_hash(o):
     # return hash(tuple(frozenset(sorted(new_o.items()))))
 
 
-def ifex_saver(data, filepath, saver, file_format):
-    with timeit(f"Saving processed {filepath}:"):
+def ifex_saver(data, filepath, saver, file_format, verbose=True):
+    with timeit(f"Saving processed {filepath}:", verbose=verbose):
         if saver is not None:
             saver(data, filepath)
         elif "npy" in file_format:
@@ -217,12 +217,12 @@ def ifex_saver(data, filepath, saver, file_format):
             raise Exception(f"Format {file_format} not implemented.")
 
 
-def ifex_loader(filepath, loader, file_format):
+def ifex_loader(filepath, loader, file_format, verbose=True):
     """
     :param file_format: format for the termination of the file. If not known specify loader an saver. known ones are: npy, pickle, joblib
     :param loader: function that knows how to load the file
     """
-    with timeit(f"Loading pre-processed {filepath}:"):
+    with timeit(f"Loading pre-processed {filepath}:", verbose=verbose):
         if loader is not None:
             data = loader(filepath)
         elif "npy" == file_format:
