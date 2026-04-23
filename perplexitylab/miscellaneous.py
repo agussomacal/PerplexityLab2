@@ -305,7 +305,8 @@ def if_exist_load_else_do(file_format="joblib", loader=None, saver=None, descrip
     return decorator
 
 
-def check_do_save_or_load_experiment(file_format="joblib", loader=None, saver=None, description=None, vars_filter=None):
+def check_do_save_or_load_experiment(default_path=None, file_format="joblib", loader=None, saver=None, description=None,
+                                     vars_filter=None):
     """
     Decorator to manage loading and saving of files after a first processing execution.
     :param file_format: format for the termination of the file. If not known specify loader an saver. known ones are: npy, pickle, joblib
@@ -327,8 +328,12 @@ def check_do_save_or_load_experiment(file_format="joblib", loader=None, saver=No
          "transformation that will be used to create the hashh and save the experiment")
 
     def decorator(do_func):
-        def decorated_func(path, filename=None, experiment_tag="", recalculate=False, save=True, verbose=True, *args,
+        def decorated_func(path=None, filename=None, experiment_tag="", recalculate=False, save=True, verbose=True,
+                           *args,
                            **kwargs):
+            if path is None:
+                path = default_path
+
             if path is None:
                 warnings.warn("Missing path: experiments won't be saved.")
                 return do_func(*args, **kwargs)
