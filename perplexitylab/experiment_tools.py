@@ -83,7 +83,7 @@ class ExperimentManager:
         assert len(self.tasks) > 0, "Zero tasks defined, consider running 'set_pipeline' before 'set_defaults'."
         params_in_common = self.experiment_parameters.intersection(constants.keys())
         assert params_in_common == set(constants.keys()), \
-            (f"Constants should be one of:\n{'\n\t'.join(self.experiment_parameters)}\n"
+            ("Constants should be one of:\n{0}\n".format('\n\t'.join(self.experiment_parameters)) +
              f"but found [{set(constants.keys()).difference(self.experiment_parameters)}] not in parameters, maybe a misspelling error?")
         self.constants.update(**constants)
         return self
@@ -121,7 +121,7 @@ class ExperimentManager:
     def run_pipeline(self, required_variables: List[str] = None, **kwargs: List):
         params_in_common = self.experiment_parameters.intersection(kwargs.keys())
         assert params_in_common == set(kwargs.keys()), \
-            (f"Variables should be one of: {'\n\t'.join(self.experiment_parameters)}\n"
+            ("Variables should be one of: {0}\n".format('\n\t'.join(self.experiment_parameters)) +
              f"but found [{set(kwargs.keys()).difference(self.experiment_parameters)}] not in parameters, maybe a misspelling error?")
 
         # _, explored_inputs = self.load_explored_inputs()

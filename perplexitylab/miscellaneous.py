@@ -305,8 +305,8 @@ def if_exist_load_else_do(file_format="joblib", loader=None, saver=None, descrip
     return decorator
 
 
-def check_do_save_or_load_experiment(default_path=None, file_format="joblib", loader=None, saver=None, description=None,
-                                     vars_filter=None):
+def check_do_save_or_load_experiment(default_path=None, embedd_in_folder=True, file_format="joblib", loader=None,
+                                     saver=None, description=None, vars_filter=None):
     """
     Decorator to manage loading and saving of files after a first processing execution.
     :param file_format: format for the termination of the file. If not known specify loader an saver. known ones are: npy, pickle, joblib
@@ -339,6 +339,10 @@ def check_do_save_or_load_experiment(default_path=None, file_format="joblib", lo
                 return do_func(*args, **kwargs)
             else:
                 path = Path(path)
+                if embedd_in_folder:
+                    path = path.joinpath(
+                        embedd_in_folder if isinstance(embedd_in_folder, str) else f".{do_func.__name__}")
+
                 path.mkdir(parents=True, exist_ok=True)
                 hash_of_input = make_hash((experiment_tag,) +
                                           ((args, kwargs) if vars_filter is None else vars_filter(*args, **kwargs)))
