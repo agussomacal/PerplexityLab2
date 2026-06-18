@@ -12,7 +12,7 @@ import dill
 import joblib
 from makefun import with_signature
 
-from perplexitylab.miscellaneous import make_hash, get_map_function, filter_dict, message, DictList
+from perplexitylab.miscellaneous import make_hash, get_map_function, filter_dict, message, DictList, plx_partial_class
 
 
 # ================================================ #
@@ -221,3 +221,32 @@ class ExperimentManager:
                 for k, v in singe_result.items():
                     result_dict[k].append(v)
         return result_dict
+
+
+def experiment_iterator(experiment_class, **constants):
+    p_exp_class = plx_partial_class(experiment_class, **filter_dict(constants, keys=experiment_class.__match_args__))
+    other_constants = filter_dict(constants, keys_not=experiment_class.__match_args__)
+
+    def create_iterator(**iterates):
+        experiment_iterates = filter_dict(iterates, keys=experiment_class.__match_args__)
+        other_iterates = filter_dict(iterates, keys_not=experiment_class.__match_args__)
+
+        def iterator():
+            for exp_values in itertools.product(*list(experiment_iterates.values())):
+                for other_values in itertools.product(*list(other_iterates.values())):
+                    other = dict(zip(other_iterates.keys(), other_values))
+                    other.update(other_constants)
+                    yield p_exp_class(**dict(zip(experiment_iterates.keys(), exp_values))), other
+
+        return iterator
+
+    return create_iterator
+
+
+def concatenate_iterators(*iterators):
+    def big_iterator():
+        for iterator in iterators:
+            for out in iterator():
+                yield out
+
+    return big_iterator
