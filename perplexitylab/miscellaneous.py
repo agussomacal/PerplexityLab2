@@ -9,7 +9,7 @@ import time
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Dict, Type, Union, Set, List
+from typing import Callable, Dict, Type, Union, Set, List, Optional, Any, Tuple
 
 import joblib
 import numpy as np
@@ -152,89 +152,125 @@ def clean_str4saving(s):
 DictProxyType = type(object.__dict__)
 
 
-def make_hash(o):
+def make_hash(o: Any) -> str:
     """
-    Thanks to: https://stackoverflow.com/questions/5884066/hashing-a-dictionary
-
-    Makes a hash from a dictionary, list, tuple or set to any level, that
-    contains only other hashable types (including any lists, tuples, sets, and
-    dictionaries). In the case where other kinds of objects (like classes) need
-    to be hashed, pass in a collection of object attributes that are pertinent.
-    For example, a class can be hashed in this fashion:
-
-      make_hash([cls.__dict__, cls.__name__])
-
-    A function can be hashed like so:
-
-      make_hash([fn.__dict__, fn.__code__])
+    Recursively makes a hashable representation of complex objects (dicts, lists, sets, arrays).
+    Returns a hexadecimal SHA256 hash string.
     """
+    # Handle None explicitly
+    if o is None:
+        return hashlib.sha256(b"None").hexdigest()
 
-    # if type(o) == DictProxyType:
-    #     o2 = {}
-    #     for k, v in o.items():
-    #         if not k.startswith("__"):
-    #             o2[k] = v
-    #     o = o2
-
+    # Strings: Encode to UTF-8 and hash
     if isinstance(o, str):
         return hashlib.sha256(o.encode('utf-8')).hexdigest()
-    elif isinstance(o, (set, tuple, list)):
-        return make_hash(str([make_hash(e) for e in o]))
-    elif isinstance(o, set):
-        return make_hash(sorted(list(o)))
-    elif isinstance(o, dict):
-        return make_hash(tuple([(make_hash(k), make_hash(o[k])) for k in sorted(o)]))
-    elif isinstance(o, np.ndarray):
-        return make_hash(o.ravel().tolist())
-    elif inspect.isclass(o):
-        return make_hash([o.__name__, ])  # TODO: check the right way to hash
-    elif isinstance(o, Callable):
-        # return make_hash([o.__name__, o.__dict__, ])  # TODO: check the right way to hash/ , o.__code__.co_filename
-        return make_hash([o.__name__, ])  # TODO: check the right way to hash/ , o.__code__.co_filename
-    elif isinstance(o, (int, float)):
+
+    # Sets: Sort elements to ensure order independence
+    if isinstance(o, set):
+        # Sort requires elements to be comparable; fallback to string repr if not
+        try:
+            sorted_o = sorted(list(o))
+        except TypeError:
+            sorted_o = sorted([str(x) for x in o])
+        return make_hash(sorted_o)
+
+    # Lists/Tuples: Process recursively
+    if isinstance(o, (list, tuple)):
+        # Create a tuple of hashes to maintain structure
+        hashed_items = tuple(make_hash(item) for item in o)
+        # Hash the resulting tuple string representation to get a single hash
+        return hashlib.sha256(str(hashed_items).encode('utf-8')).hexdigest()
+
+    # Dictionaries: Sort keys to ensure order independence
+    if isinstance(o, dict):
+        sorted_items = tuple((k, v) for k, v in sorted(o.items()))
+        hashed_items = tuple((make_hash(k), make_hash(v)) for k, v in sorted_items)
+        return hashlib.sha256(str(hashed_items).encode('utf-8')).hexdigest()
+
+    # Numpy Arrays: Convert to list (efficient for large arrays? maybe use tobytes())
+    if isinstance(o, np.ndarray):
+        # Using .tobytes() is faster and more memory efficient for large arrays than .tolist()
+        return hashlib.sha256(o.tobytes()).hexdigest()
+
+    # Classes: Hash name (and optionally module)
+    if inspect.isclass(o):
+        return hashlib.sha256(f"{o.__module__}.{o.__name__}".encode('utf-8')).hexdigest()
+
+    # Functions: Hash name (Code object hashing can be fragile across environments)
+    if callable(o) and not inspect.isclass(o):
+        # Warning: __code__.co_filename changes between dev/prod.
+        # Hashing just the name is safer for portability.
+        return hashlib.sha256(o.__name__.encode('utf-8')).hexdigest()
+
+    # Numbers (int, float)
+    if isinstance(o, (int, float)):
+        # Ensure consistent string representation
         return make_hash(str(o))
-    else:
-        return make_hash(str(o))
-    # new_o = copy.deepcopy(o)
-    # for k, v in new_o.items():
-    #     new_o[k] = make_hash(v)
-    #
-    # return hash(tuple(frozenset(sorted(new_o.items()))))
+
+    # Fallback: Convert everything else to string
+    return hashlib.sha256(str(o).encode('utf-8')).hexdigest()
 
 
-def ifex_saver(data, filepath, saver, file_format, verbose=True):
-    with timeit(f"Saving processed {filepath}:", verbose=verbose):
+def ifex_saver(data: Any, filepath: str, saver: Optional[Callable] = None, file_format: str = "joblib",
+               verbose: bool = True):
+    """
+    Saves data to a file using the specified format or custom saver function.
+    CRITICAL: Uses binary modes ('wb') for pickle to prevent corruption.
+    """
+    # Use context manager if available, otherwise just print timing
+    # Assuming 'timeit' is a context manager defined elsewhere
+    timer_ctx = timeit(f"Saving processed {filepath}:", verbose=verbose)
+
+    with timer_ctx:
         if saver is not None:
             saver(data, filepath)
-        elif "npy" in file_format:
+            return
+
+        format_lower = file_format.lower().strip()
+
+        if format_lower == "npy":
             np.save(filepath, data)
-        elif "pickle" in file_format:
-            with open(filepath, "r") as f:
-                pickle.dump(data, f)
-        elif "joblib" in file_format:
+
+        elif format_lower == "pickle":
+            # FIX: Use 'wb' (write binary) instead of 'r'
+            with open(filepath, "wb") as f:
+                pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        elif format_lower == "joblib":
             joblib.dump(data, filepath)
+
         else:
-            raise Exception(f"Format {file_format} not implemented.")
+            raise ValueError(f"Format '{file_format}' not implemented. Supported: npy, pickle, joblib.")
 
 
-def ifex_loader(filepath, loader, file_format, verbose=True):
+def ifex_loader(filepath: str, loader: Optional[Callable] = None, file_format: str = "joblib",
+                verbose: bool = True) -> Any:
     """
-    :param file_format: format for the termination of the file. If not known specify loader an saver. known ones are: npy, pickle, joblib
-    :param loader: function that knows how to load the file
+    Loads data from a file using the specified format or custom loader function.
+    CRITICAL: Uses binary modes ('rb') for pickle.
     """
-    with timeit(f"Loading pre-processed {filepath}:", verbose=verbose):
+    timer_ctx = timeit(f"Loading pre-processed {filepath}:", verbose=verbose)
+
+    with timer_ctx:
         if loader is not None:
-            data = loader(filepath)
-        elif "npy" == file_format:
-            data = np.load(filepath, allow_pickle=True)
-        elif "pickle" == file_format:
-            with open(filepath, "r") as f:
-                data = pickle.load(f)
-        elif "joblib" == file_format:
-            data = joblib.load(filepath)
+            return loader(filepath)
+
+        format_lower = file_format.lower().strip()
+
+        if format_lower == "npy":
+            # allow_pickle=True allows loading of object arrays if necessary
+            return np.load(filepath, allow_pickle=True)
+
+        elif format_lower == "pickle":
+            # FIX: Use 'rb' (read binary) instead of 'r'
+            with open(filepath, "rb") as f:
+                return pickle.load(f)
+
+        elif format_lower == "joblib":
+            return joblib.load(filepath)
+
         else:
-            raise Exception(f"Format {file_format} not implemented.")
-        return data
+            raise ValueError(f"Format '{file_format}' not implemented. Supported: npy, pickle, joblib.")
 
 
 def if_exist_load_else_do(file_format="joblib", loader=None, saver=None, description=None, check_hash=False):
